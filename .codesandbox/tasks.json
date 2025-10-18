@@ -6,11 +6,16 @@
   "tasks": {
     "Start": {
       "name": "Start",
-      "command": "bun --hot run index.ts",
-      "runAtStart": true,
+      "command": "bun --hot run ./src/index.ts",
+      "runAtStart": false,
       "preview": {
         "port": 3000
       }
+    },
+    "Test": {
+      "name": "Test",
+      "command": "bun test --watch",
+      "runAtStart": false
     }
   }
 }

@@ -2,6 +2,9 @@
   "name": "auth-suite",
   "module": "index.ts",
   "type": "module",
+  "script": {
+    
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
