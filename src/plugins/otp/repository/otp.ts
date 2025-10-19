@@ -1,3 +1,4 @@
+import { StoreError } from "../../../utils/error";
 import type { TBaseOtp } from "../types";
 
 export interface IOtpRepository<TOtp extends TBaseOtp = TBaseOtp> {
@@ -65,9 +66,128 @@ export interface IOtpRepository<TOtp extends TBaseOtp = TBaseOtp> {
   }>;
 }
 
+// memory util functions
+type Mutable<T> = { -readonly [K in keyof T]: T[K] };
+
+function shallowFreeze<T>(obj: T): Readonly<T> {
+  return Object.freeze({ ...obj }) as Readonly<T>;
+}
+
+const collator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+function compareValues(a: unknown, b: unknown): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return -1; // or flip if you want nulls last
+  if (b == null) return 1;
+
+  if (typeof a === "number" && typeof b === "number") {
+    if (Number.isNaN(a) && Number.isNaN(b)) return 0;
+    if (Number.isNaN(a)) return -1;
+    if (Number.isNaN(b)) return 1;
+    return a - b;
+  }
+  if (a instanceof Date && b instanceof Date) return a.valueOf() - b.valueOf();
+
+  return collator.compare(String(a), String(b));
+}
+
 export class MemoryOtpRepository<TOtp extends TBaseOtp = TBaseOtp>
   implements IOtpRepository<TOtp>
 {
   /** Primary store by id */
   private store: Map<string, TOtp>;
+  private generateId: () => string;
+
+  constructor({
+    initialOtps = new Map<string, TOtp>(),
+    generateId = () => crypto.randomUUID() as string,
+  } = {}) {
+    this.store = new Map(initialOtps);
+    this.generateId = generateId;
+  }
+
+  async getById(id: string): Promise<Readonly<TOtp> | null> {
+    const found = this.store.get(id);
+    return found ? shallowFreeze(found) : null;
+  }
+
+  async create(input: Omit<TOtp, "id">): Promise<Readonly<TOtp>> {
+    // Construct OTP with generated id; keep other fields as provided.
+    const otp = {
+      ...(input as Mutable<TOtp>),
+      id: this.generateId(),
+    } as TOtp;
+
+    this.store.set(otp.id, otp);
+    return shallowFreeze(otp);
+  }
+
+  async update(
+    id: string,
+    patch: Partial<Omit<TOtp, "id">>
+  ): Promise<Readonly<TOtp>> {
+    const existing = this.store.get(id);
+    if (!existing)
+      throw new StoreError("entry-not-found", `OTP not found: ${id}`);
+
+    // Persist record
+    const updated: TOtp = {
+      ...(existing as Mutable<TOtp>),
+      ...(patch as any),
+      id,
+    };
+    this.store.set(id, updated);
+
+    return shallowFreeze(updated);
+  }
+
+  async delete(id: string): Promise<void> {
+    const existing = this.store.get(id);
+    if (!existing) {
+      throw new StoreError("entry-not-found", `OTP not found: ${id}`);
+    }
+    this.store.delete(id);
+  }
+
+  async list(
+    limit: number,
+    offset: number,
+    sortBy: keyof TOtp = "id",
+    sortDir: "asc" | "desc" = "asc"
+  ): Promise<{
+    items: Readonly<TOtp>[];
+    meta: { count: number; offset: number; total?: number };
+  }> {
+    if (limit < 0 || offset < 0) {
+      throw new StoreError("invalid-input", "limit/offset must be >= 0");
+    }
+
+    const total = this.store.size;
+
+    // Materialize to array
+    const rows = Array.from(this.store.values());
+
+    // Stable sort by key, then id as tiebreaker
+    rows.sort((a, b) => {
+      const dir = sortDir === "asc" ? 1 : -1;
+      const primary = compareValues(a[sortBy], b[sortBy]);
+      if (primary !== 0) return dir * primary;
+      return dir * compareValues(a.id, b.id);
+    });
+
+    const page = rows.slice(offset, offset + limit);
+    const items = page.map(shallowFreeze);
+
+    return {
+      items,
+      meta: {
+        count: items.length,
+        offset,
+        total, // cheap for in-memory; keep optional to match your contract
+      },
+    };
+  }
 }
