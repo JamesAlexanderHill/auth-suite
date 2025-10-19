@@ -15,4 +15,7 @@ test("Plugin > OTP", () => {
   const authServer = new AuthServer().registerPlugins([otpServerPlugin]);
 
   expect(authServer).toBeInstanceOf(AuthServer);
+  expect(authServer.api).toHaveProperty("generate");
+  expect(authServer.api).toHaveProperty("store");
+  expect(authServer.api).toHaveProperty("send");
 });
