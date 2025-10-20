@@ -4,7 +4,7 @@ import defineCoreServerPlugin from "./server";
 import AuthServer from "../../server";
 import { MemoryUserRepository } from "./repository/user";
 
-test("Plugin > Core", () => {
+test("Core Plugin", () => {
   const coreServerPlugin = defineCoreServerPlugin({
     userRepository: new MemoryUserRepository(),
     callback: {},

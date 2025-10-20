@@ -10,16 +10,15 @@ type CoreServerOptions = {
 
 export default function defineCoreServerPlugin(options: CoreServerOptions) {
   const coreApi = new ApiBuilder()
-    .api('getUserById', async (id: string) => {
+    .api("getUserById", async (id: string) => {
       return options.userRepository.getById(id);
     })
-    .api('getUserByEmail', async (email: string) => {
+    .api("getUserByEmail", async (email: string) => {
       return options.userRepository.getByEmail(email);
     })
-    .api('createUser', async (userData: Omit<TBaseUser, 'id'>) => {
+    .api("createUser", async (userData: Omit<TBaseUser, "id">) => {
       return options.userRepository.create(userData);
     });
 
-  return new AuthServer()
-    .registerApi(coreApi).registerMiddleware().registerRoutes();
+  return new AuthServer().registerApi(coreApi);
 }

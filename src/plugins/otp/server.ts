@@ -28,7 +28,7 @@ export default function defineOtpServerPlugin(
   }
 ) {
   const otpApi = new ApiBuilder()
-    .api("otp.generate", async (email: string) => {
+    .api("otp.generate", async () => {
       const otp =
         (await options.callback.generateOtp?.()) ||
         (await defaultGenerateOtp());
@@ -48,8 +48,5 @@ export default function defineOtpServerPlugin(
       }
     });
 
-  return new AuthServer()
-    .registerApi(otpApi)
-    .registerMiddleware()
-    .registerRoutes();
+  return new AuthServer().registerApi(otpApi);
 }
