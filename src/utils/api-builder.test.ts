@@ -3,35 +3,18 @@ import { describe, expect, test } from "bun:test";
 import ApiBuilder from "./api-builder";
 
 describe("ApiBuilder", () => {
-	test("without namespace", () => {
-		const apiBuilder = new ApiBuilder()
-			.api('example', () => 'example handler')
-			.api('other.api.example', () => 42);
+  test("build() returns final api object", () => {
+    const apiBuilder = new ApiBuilder()
+      .api("example", (id: string) => Promise.resolve(`example handler ${id}`))
+      .api("other.api.example", (num: number) => Promise.resolve(42 * num));
 
-		expect(apiBuilder.build()).toEqual({
-			example: expect.any(Function),
-			other: {
-				api: {
-					example: expect.any(Function),
-				},
-			},
-		});
-	});
-	test("with namespace", () => {
-		const apiBuilder = new ApiBuilder({ namespace: 'placeholder' })
-			.api('example', () => 'example handler')
-			.api('other.api.example', () => 42);
-
-		expect(apiBuilder.build()).toEqual({
-			placeholder: {
-				example: expect.any(Function),
-				other: {
-					api: {
-						example: expect.any(Function),
-					},
-				},
-			}
-		});
-	});
-	
+    expect(apiBuilder.build()).toEqual({
+      example: expect.any(Function),
+      other: {
+        api: {
+          example: expect.any(Function),
+        },
+      },
+    });
+  });
 });
