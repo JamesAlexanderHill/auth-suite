@@ -1,6 +1,6 @@
 import { describe, expect, test, spyOn } from "bun:test";
 
-import defineOtpServerPlugin from "./server";
+import OtpServerPlugin from "./server";
 import AuthServer from "../../server";
 import { MemoryOtpRepository } from "./repository/otp";
 
@@ -18,11 +18,11 @@ describe("OTP Plugin", async () => {
       console.log(`OTP (${Option}) email sent to ${email}`),
   };
 
-  const otpServerPlugin = defineOtpServerPlugin({
+  const otpServerPlugin = new OtpServerPlugin({
     otpRepository: new MemoryOtpRepository(),
     callback,
   });
-  const authServer = new AuthServer().registerPlugins([otpServerPlugin]);
+  const authServer = new AuthServer({}).registerPlugins([otpServerPlugin]);
 
   expect(authServer).toBeInstanceOf(AuthServer);
 
@@ -33,7 +33,7 @@ describe("OTP Plugin", async () => {
 
   test("store", async () => {
     expect(authServer.api.otp).toHaveProperty("store");
-    expect(await authServer.api.otp.store(DUMMY_OTP)).toMatchObject(DUMMY_OTP);
+    expect(await authServer.apix.otp.store(DUMMY_OTP)).toMatchObject(DUMMY_OTP);
     expect(await authServer.api.otp.store(DUMMY_OTP)).toHaveProperty("id");
   });
 

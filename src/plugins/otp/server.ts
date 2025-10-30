@@ -1,7 +1,61 @@
+// import AuthServer from "../../server";
+// import ApiBuilder from "../../utils/api-builder";
+// import { MemoryOtpRepository, type IOtpRepository } from "./repository/otp";
+// import type { TBaseOtp } from "./types";
+
+// async function defaultGenerateOtp() {
+//   const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+//   return otp;
+// }
+
+// type OtpServerOptions = {
+//   otpRepository: IOtpRepository<TBaseOtp>;
+//   callback: {
+//     sendOtpEmail: (otp: string, email: string) => Promise<void>;
+//     generateOtp?: () => Promise<string>;
+//   };
+// };
+
+// export default function defineOtpServerPlugin(
+//   options: OtpServerOptions = {
+//     otpRepository: new MemoryOtpRepository(),
+//     callback: {
+//       sendOtpEmail: async (email: string, otp: string) => {
+//         console.log(`Sending OTP ${otp} to email: ${email}`);
+//       },
+//     },
+//   }
+// ) {
+//   const otpApi = new ApiBuilder()
+//     .api("otp.generate", async () => {
+//       const otp =
+//         (await options.callback.generateOtp?.()) ||
+//         (await defaultGenerateOtp());
+
+//       return otp;
+//     })
+//     .api("otp.store", async (otp: Omit<TBaseOtp, "id">) => {
+//       return options.otpRepository.create(otp);
+//     })
+//     .api("otp.send", async (email: string, otp: string) => {
+//       try {
+//         await options.callback.sendOtpEmail(email, otp);
+
+//         return true;
+//       } catch (err) {
+//         return false;
+//       }
+//     });
+
+//   return new AuthServer().registerApi(otpApi);
+// }
 import AuthServer from "../../server";
-import ApiBuilder from "../../utils/api-builder";
 import { MemoryOtpRepository, type IOtpRepository } from "./repository/otp";
 import type { TBaseOtp } from "./types";
+import ApiBuilder from "../../utils/api-builder";
+import type { TBaseApi } from "../../utils/types";
+import { AbstractServerPlugin } from "../abstract-server-plugin";
 
 async function defaultGenerateOtp() {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -9,7 +63,7 @@ async function defaultGenerateOtp() {
   return otp;
 }
 
-type OtpServerOptions = {
+type OtpServerPluginParams = {
   otpRepository: IOtpRepository<TBaseOtp>;
   callback: {
     sendOtpEmail: (otp: string, email: string) => Promise<void>;
@@ -17,36 +71,41 @@ type OtpServerOptions = {
   };
 };
 
-export default function defineOtpServerPlugin(
-  options: OtpServerOptions = {
-    otpRepository: new MemoryOtpRepository(),
-    callback: {
-      sendOtpEmail: async (email: string, otp: string) => {
-        console.log(`Sending OTP ${otp} to email: ${email}`);
-      },
-    },
+export default class OtpServerPlugin extends AbstractServerPlugin {
+  private _callback;
+  private _otpRepository;
+
+  constructor(params: OtpServerPluginParams) {
+    super();
+
+    this._callback = params.callback;
+    this._otpRepository = params.otpRepository;
   }
-) {
-  const otpApi = new ApiBuilder()
-    .api("otp.generate", async () => {
-      const otp =
-        (await options.callback.generateOtp?.()) ||
-        (await defaultGenerateOtp());
 
-      return otp;
-    })
-    .api("otp.store", async (otp: Omit<TBaseOtp, "id">) => {
-      return options.otpRepository.create(otp);
-    })
-    .api("otp.send", async (email: string, otp: string) => {
-      try {
-        await options.callback.sendOtpEmail(email, otp);
+  registerApi(_authServer: AuthServer) {
+    const otpApi = new ApiBuilder()
+      .api("otp.generate", async () => {
+        const otp =
+          (await this._callback.generateOtp?.()) ||
+          (await defaultGenerateOtp());
 
-        return true;
-      } catch (err) {
-        return false;
-      }
-    });
+        return otp;
+      })
+      .api("otp.store", async (otp: Omit<TBaseOtp, "id">) => {
+        return this._otpRepository.create(otp);
+      })
+      .api("otp.send", async (email: string, otp: string) => {
+        try {
+          await this._callback.sendOtpEmail(email, otp);
 
-  return new AuthServer().registerApi(otpApi);
+          return true;
+        } catch (err) {
+          return false;
+        }
+      });
+
+    this._api = otpApi;
+
+    return this;
+  }
 }

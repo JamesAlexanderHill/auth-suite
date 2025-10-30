@@ -21,3 +21,13 @@ export type UnionToIntersection<U> = (
 ) extends (x: infer I) => void
 	? I
 	: never;
+
+export type TAsyncFunc = (...args: any) => Promise<any>;
+export type TBaseApi = {
+	[key: string]: TAsyncFunc | TBaseApi | undefined;
+} | {};
+export type TBaseRoutes = unknown;
+export type TBaseMiddleware = unknown;
+export type PathToObj<S extends string, V> = S extends `${infer H}.${infer T}`
+  ? { [K in H]: PathToObj<T, V> }
+  : { [K in S]: V };

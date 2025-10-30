@@ -1,42 +1,60 @@
-import { mergeDeepRight } from "ramda";
-import ApiBuilder from "./utils/api-builder";
-import type { DeepMerge, UnionToIntersection } from "./utils/types";
+import { mergeDeepRight, assocPath } from "ramda";
+import type { TBaseApi, TBaseRoutes, TBaseMiddleware, PathToObj, TAsyncFunc } from "./utils/types";
+import type { AbstractServerPlugin } from "./plugins/abstract-server-plugin";
 
-export default class AuthServer<TAcc extends object = {}> {
-  private _api: any = {};
+type TAuthServerParams<TApi, TRoutes, TMiddleware> = {
+  api?: TApi,
+  routes?: TRoutes,
+  middleware?: TMiddleware,
+}
 
-  /** Merge a single ApiBuilder into this server */
-  registerApi<B extends object>(
-    builder: ApiBuilder<B>
-  ): AuthServer<DeepMerge<TAcc, B>> {
-    this._api = mergeDeepRight(this._api, builder.build());
-    return this as unknown as AuthServer<DeepMerge<TAcc, B>>;
+export default class AuthServer<
+  TApi extends TBaseApi = {},
+  TRoutes extends TBaseRoutes = {},
+  TMiddleware extends TBaseMiddleware = {},
+> {
+  private _api: TApi;
+  private _routes: TRoutes;
+  private _middleware: TMiddleware;
+
+  constructor({ api, routes, middleware }: TAuthServerParams<TApi, TRoutes, TMiddleware>) {
+    this._api = api || {} as TApi;
+    this._routes = routes || {} as TRoutes;
+    this._middleware = middleware || {} as TMiddleware;
+  }
+
+  public registerApi<K extends string, H extends TAsyncFunc>(
+    key: K,
+    handler: H
+  ) {
+    const newApi = assocPath(key.split("."), handler, this._api) as TApi & PathToObj<K, H>;
+
+    return new AuthServer<TApi & PathToObj<K, H>, TRoutes, TMiddleware>({api: newApi, routes: this._routes, middleware: this._middleware});
   }
 
   /** Merge an array of other AuthServer instances (plugins) */
-  registerPlugins<P extends readonly AuthServer<any>[]>(
+  registerPlugins<P extends readonly AbstractServerPlugin[]>(
     plugins: P
-  ): AuthServer<
-    DeepMerge<
-      TAcc,
-      UnionToIntersection<
-        { [I in keyof P]: P[I] extends AuthServer<infer A> ? A : never }[number]
-      >
-    >
-  > {
+  ) {
+    let mergedPluginApi = this._api;
+    let mergedPluginRoutes = this._routes;
+    let mergedPluginMiddleware = this._middleware;
+
     for (const plugin of plugins) {
-      this._api = mergeDeepRight(this._api, plugin.api);
+      const decoratedPlugin = plugin
+        .registerApi(this);
+      mergedPluginApi = mergeDeepRight(mergedPluginApi, decoratedPlugin.api) as TApi;
     }
 
-    type AllApis = UnionToIntersection<
-      { [I in keyof P]: P[I] extends AuthServer<infer A> ? A : never }[number]
-    >;
-
-    return this as unknown as AuthServer<DeepMerge<TAcc, AllApis>>;
+    return new AuthServer<TApi, TRoutes, TMiddleware>({
+      api: mergedPluginApi,
+      routes: mergedPluginRoutes,
+      middleware: mergedPluginMiddleware,
+    })
   }
 
   /** Return the fully-typed merged API */
-  get api(): TAcc {
-    return this._api as TAcc;
+  get api() {
+    return this._api;
   }
 }

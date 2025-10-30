@@ -1,23 +1,23 @@
 import assocPath from "ramda/src/assocPath";
+import type { TBaseApi, PathToObj, TAsyncFunc } from "./types";
 
-// "a.b.c" -> { a: { b: { c: V } } }
-type PathToObj<S extends string, V> = S extends `${infer H}.${infer T}`
-  ? { [K in H]: PathToObj<T, V> }
-  : { [K in S]: V };
+export default class ApiBuilder<TApi extends TBaseApi = {}> {
+  private _api: TApi;
 
-export default class ApiBuilder<TApi extends object = {}> {
-  private _api: any = {};
-
-  public api<K extends string, H extends (...args: any[]) => any>(
-    key: K,
-    handler: H
-  ): ApiBuilder<TApi & PathToObj<K, H>> {
-    this._api = assocPath(key.split("."), handler, this._api);
-
-    return this as unknown as ApiBuilder<TApi & PathToObj<K, H>>;
+  constructor(api?: TApi) {
+    this._api = api ?? {} as TApi;
   }
 
-  public build(): TApi {
-    return this._api as TApi;
+  public api<K extends string, H extends TAsyncFunc>(
+    key: K,
+    handler: H
+  ) {
+    const newApi = assocPath(key.split("."), handler, this._api) as TApi & PathToObj<K, H>;
+
+    return new ApiBuilder(newApi);
+  }
+
+  public build() {
+    return this._api;
   }
 }
