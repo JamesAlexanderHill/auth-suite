@@ -13,7 +13,7 @@ class ExamplePlugin extends AbstractServerPlugin {
     const pluginApi = new ApiBuilder()
       .api("plugin.ok", () => Promise.resolve(true));
 
-    this._api = pluginApi;
+    this.api = pluginApi;
 
     return this;
   }

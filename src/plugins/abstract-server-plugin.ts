@@ -2,17 +2,17 @@ import AuthServer from "../server";
 import ApiBuilder from "../utils/api-builder";
 import type { TBaseApi, TBaseRoutes, TBaseMiddleware } from "../utils/types";
 
-export abstract class AbstractServerPlugin {
-    protected dependencies = ['core'];
-    protected _api: TBaseApi = {};
+export abstract class AbstractServerPlugin<PApi extends TBaseApi = {}> {
+    protected readonly dependencies = ['core'] as string[];
+    private _api!: PApi;
 
-    abstract registerApi(authServer: AuthServer<TBaseApi, TBaseRoutes, TBaseMiddleware>): AbstractServerPlugin;
+    public abstract registerApi(authServer: AuthServer<TBaseApi, TBaseRoutes, TBaseMiddleware>): this;
 
-    get api(): TBaseApi {
+    get api(): Readonly<PApi> {
         return this._api;
     }
 
-    set api(apiBuilder: ApiBuilder) {
+    protected set api(apiBuilder: ApiBuilder<PApi>) {
         const builtApi = apiBuilder.build();
 
         this._api = builtApi;

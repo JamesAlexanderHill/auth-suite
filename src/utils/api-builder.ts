@@ -17,7 +17,7 @@ export default class ApiBuilder<TApi extends TBaseApi = {}> {
     return new ApiBuilder(newApi);
   }
 
-  public build() {
+  public build(): TApi {
     return this._api;
   }
 }

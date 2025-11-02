@@ -4,7 +4,7 @@ Auth Suite is an authentication framework focused on DX, extensibility and secur
 Server SDK will support decorating the authServer instance with plugins, routes, middleware and API methods.
 Client SDK will support decorating the auth client instance with plugins and API methods.
 
-Plugins themselves will be instances of an authServer or authClient (heavily inspired by ElysiaJS). So they can be packaged as standalone plugins that extended an authClient or authServer instance in a modular way.
+Server plugins will extend an abstract and define methods registerApi, registerRoutes and registerMiddleware. These methods will have the current authServer instance as a parameter and will return utility builder instances like ApiBuilder
 
 ## High-level API
 

@@ -33,7 +33,7 @@ describe("OTP Plugin", async () => {
 
   test("store", async () => {
     expect(authServer.api.otp).toHaveProperty("store");
-    expect(await authServer.apix.otp.store(DUMMY_OTP)).toMatchObject(DUMMY_OTP);
+    expect(await authServer.api.otp.store(DUMMY_OTP)).toMatchObject(DUMMY_OTP);
     expect(await authServer.api.otp.store(DUMMY_OTP)).toHaveProperty("id");
   });
 

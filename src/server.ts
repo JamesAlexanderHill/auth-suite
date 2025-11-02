@@ -1,6 +1,8 @@
 import { mergeDeepRight, assocPath } from "ramda";
-import type { TBaseApi, TBaseRoutes, TBaseMiddleware, PathToObj, TAsyncFunc } from "./utils/types";
+import type { TBaseApi, TBaseRoutes, TBaseMiddleware, PathToObj, TAsyncFunc, UnionToIntersection } from "./utils/types";
 import type { AbstractServerPlugin } from "./plugins/abstract-server-plugin";
+
+type PluginApi<P> = P extends AbstractServerPlugin<infer A> ? A : never;
 
 type TAuthServerParams<TApi, TRoutes, TMiddleware> = {
   api?: TApi,
@@ -33,20 +35,22 @@ export default class AuthServer<
   }
 
   /** Merge an array of other AuthServer instances (plugins) */
-  registerPlugins<P extends readonly AbstractServerPlugin[]>(
+  registerPlugins<P extends readonly AbstractServerPlugin<any>[]>(
     plugins: P
   ) {
-    let mergedPluginApi = this._api;
+    type ApiFromPlugins = UnionToIntersection<PluginApi<P[number]>>;
+
+    let mergedPluginApi = this._api as TApi & ApiFromPlugins;
     let mergedPluginRoutes = this._routes;
     let mergedPluginMiddleware = this._middleware;
 
     for (const plugin of plugins) {
       const decoratedPlugin = plugin
         .registerApi(this);
-      mergedPluginApi = mergeDeepRight(mergedPluginApi, decoratedPlugin.api) as TApi;
+      mergedPluginApi = mergeDeepRight(mergedPluginApi, decoratedPlugin.api) as TApi & ApiFromPlugins;
     }
 
-    return new AuthServer<TApi, TRoutes, TMiddleware>({
+    return new AuthServer<TApi & ApiFromPlugins, TRoutes, TMiddleware>({
       api: mergedPluginApi,
       routes: mergedPluginRoutes,
       middleware: mergedPluginMiddleware,
