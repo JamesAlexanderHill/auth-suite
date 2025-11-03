@@ -1,8 +1,10 @@
 import { mergeDeepRight, assocPath } from "ramda";
 import type { TBaseApi, TBaseRoutes, TBaseMiddleware, PathToObj, TAsyncFunc, UnionToIntersection } from "./utils/types";
 import type { AbstractServerPlugin } from "./plugins/abstract-server-plugin";
+import ApiBuilder from './utils/api-builder'
 
-type PluginApi<P> = P extends AbstractServerPlugin<infer A> ? A : never;
+type PluginApi<P> =
+  P extends { registerApi(...a: any): ApiBuilder<infer A> } ? A : never;
 
 type TAuthServerParams<TApi, TRoutes, TMiddleware> = {
   api?: TApi,
@@ -35,30 +37,26 @@ export default class AuthServer<
   }
 
   /** Merge an array of other AuthServer instances (plugins) */
-  registerPlugins<P extends readonly AbstractServerPlugin<any>[]>(
-    plugins: P
-  ) {
-    type ApiFromPlugins = UnionToIntersection<PluginApi<P[number]>>;
+  registerPlugins<P extends readonly AbstractServerPlugin[]>(plugins: P) {
+    type FromPlugins = PluginApi<P[number]>;
 
-    let mergedPluginApi = this._api as TApi & ApiFromPlugins;
-    let mergedPluginRoutes = this._routes;
-    let mergedPluginMiddleware = this._middleware;
+    let mergedApi = this._api as TApi & FromPlugins;
 
     for (const plugin of plugins) {
-      const decoratedPlugin = plugin
-        .registerApi(this);
-      mergedPluginApi = mergeDeepRight(mergedPluginApi, decoratedPlugin.api) as TApi & ApiFromPlugins;
+      const builder = plugin.registerApi(this);
+      const built = builder.build();               // typed as FromPlugins (piece)
+      mergedApi = { ...mergedApi, ...built } as TApi & FromPlugins;
     }
 
-    return new AuthServer<TApi & ApiFromPlugins, TRoutes, TMiddleware>({
-      api: mergedPluginApi,
-      routes: mergedPluginRoutes,
-      middleware: mergedPluginMiddleware,
-    })
+    return new AuthServer<TApi & FromPlugins, TRoutes, TMiddleware>({
+      api: mergedApi,
+      routes: this._routes,
+      middleware: this._middleware,
+    });
   }
 
   /** Return the fully-typed merged API */
-  get api() {
+  get api():TApi {
     return this._api;
   }
 }

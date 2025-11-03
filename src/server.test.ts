@@ -10,12 +10,8 @@ class ExamplePlugin extends AbstractServerPlugin {
   }
 
   registerApi(_authServer: AuthServer) {
-    const pluginApi = new ApiBuilder()
+    return new ApiBuilder()
       .api("plugin.ok", () => Promise.resolve(true));
-
-    this.api = pluginApi;
-
-    return this;
   }
 }
 const examplePlugin = new ExamplePlugin();

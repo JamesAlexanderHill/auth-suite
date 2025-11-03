@@ -22,7 +22,10 @@ describe("OTP Plugin", async () => {
     otpRepository: new MemoryOtpRepository(),
     callback,
   });
-  const authServer = new AuthServer({}).registerPlugins([otpServerPlugin]);
+  const authServer = new AuthServer({})
+    .registerPlugins([otpServerPlugin]);
+
+  authServer.api
 
   expect(authServer).toBeInstanceOf(AuthServer);
 
