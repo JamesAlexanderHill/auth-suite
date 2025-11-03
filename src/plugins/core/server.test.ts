@@ -5,20 +5,9 @@ import AuthServer from "../../server";
 import { MemoryUserRepository } from "./repository/user";
 import type { TBaseUser } from "./types";
 
-// test("Core Plugin", () => {
-//   const coreServerPlugin = defineCoreServerPlugin({
-//     userRepository: new MemoryUserRepository(),
-//     callback: {},
-//   });
-//   const authServer = new AuthServer({}).registerPlugins([coreServerPlugin]);
-
-//   expect(authServer).toBeInstanceOf(AuthServer);
-// });
-
 const DUMMY_USER = {
     email: "mail@example.com",
 };
-
 
 describe("Core Plugin", async () => {
     const coreServerPlugin = new CoreServerPlugin({
@@ -42,11 +31,21 @@ describe("Core Plugin", async () => {
 
     test("getUserById", async () => {
         expect(authServer.api).toHaveProperty("getUserById");
-        expect(await authServer.api.getUserById(testUser.id)).toContainKeys(['id', 'email']);
+
+        const successRequestedUser = await authServer.api.getUserById(testUser.id);
+        const failureRequestedUser = await authServer.api.getUserById("not_a_user");
+
+        expect(successRequestedUser).toMatchObject(DUMMY_USER);
+        expect(failureRequestedUser).toBeNull();
     });
 
     test("getUserByEmail", async () => {
         expect(authServer.api).toHaveProperty("getUserByEmail");
-        expect(await authServer.api.getUserByEmail(testUser.email)).toContainKeys(['id', 'email']);
+
+        const successRequestedUser = await authServer.api.getUserByEmail(testUser.email);
+        const failureRequestedUser = await authServer.api.getUserByEmail("does_not_exist@example.com");
+
+        expect(successRequestedUser).toMatchObject(DUMMY_USER);
+        expect(failureRequestedUser).toBeNull();
     });
 });
