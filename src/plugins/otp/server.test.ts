@@ -25,8 +25,6 @@ describe("OTP Plugin", async () => {
   const authServer = new AuthServer({})
     .registerPlugins([otpServerPlugin]);
 
-  authServer.api
-
   expect(authServer).toBeInstanceOf(AuthServer);
 
   test("generate", async () => {

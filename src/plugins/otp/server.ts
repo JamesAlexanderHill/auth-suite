@@ -2,7 +2,7 @@ import AuthServer from "../../server";
 import { type IOtpRepository } from "./repository/otp";
 import type { TBaseOtp } from "./types";
 import ApiBuilder from "../../utils/api-builder";
-import { AbstractServerPlugin } from "../abstract-server-plugin";
+import AbstractServerPlugin from "../abstract-server-plugin";
 import type { TBaseApi } from '../../utils/types';
 
 async function defaultGenerateOtp() {

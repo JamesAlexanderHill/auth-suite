@@ -1,6 +1,6 @@
 import { mergeDeepRight, assocPath } from "ramda";
 import type { TBaseApi, TBaseRoutes, TBaseMiddleware, PathToObj, TAsyncFunc, UnionToIntersection } from "./utils/types";
-import type { AbstractServerPlugin } from "./plugins/abstract-server-plugin";
+import type AbstractServerPlugin from "./plugins/abstract-server-plugin";
 import ApiBuilder from './utils/api-builder'
 
 type PluginApi<P> =

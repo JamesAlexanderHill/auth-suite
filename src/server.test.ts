@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 
 import AuthServer from "./server";
 import ApiBuilder from "./utils/api-builder";
-import { AbstractServerPlugin } from "./plugins/abstract-server-plugin";
+import AbstractServerPlugin from "./plugins/abstract-server-plugin";
 
 class ExamplePlugin extends AbstractServerPlugin {
   constructor() {
