@@ -1,6 +1,5 @@
 import { describe, it, expect } from "bun:test";
 import { MemoryOtpRepository } from "./otp";
-import { StoreError } from "../../../utils/error";
 
 type TestOtp = {
   id: string;

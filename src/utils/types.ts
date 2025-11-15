@@ -1,3 +1,5 @@
+import type ApiBuilder from "./api-builder";
+
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type Fn = (...args: any[]) => any;
 type NonMergeable = Primitive | Fn | Date | RegExp | Array<any>;
@@ -31,3 +33,6 @@ export type TBaseMiddleware = unknown;
 export type PathToObj<S extends string, V> = S extends `${infer H}.${infer T}`
   ? { [K in H]: PathToObj<T, V> }
   : { [K in S]: V };
+
+export type PluginApi<P> =
+  P extends { registerApi(...a: any): ApiBuilder<infer A> } ? A : never;

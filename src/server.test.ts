@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import AuthServer, { type PluginApi } from "./server";
 import ApiBuilder from "./utils/api-builder";
 import AbstractServerPlugin from "./plugins/abstract-server-plugin";
+import type { PluginApi, UnionToIntersection } from "./utils/types";
 
 class BasePlugin extends AbstractServerPlugin {
   constructor() {
@@ -15,28 +16,19 @@ class BasePlugin extends AbstractServerPlugin {
       .api("core.test", () => Promise.resolve(false));
   }
 }
-
 class OverridePlugin extends AbstractServerPlugin {
-  private dependancies = [BasePlugin]; // Only used to assist with typeing of authServer with other plugin API's?
-
+  public dependencies = [ExamplePlugin];
   constructor() {
-    super();
+    super()
   }
 
-  registerApi(authServer: AuthServer) {
-    return (
-      new ApiBuilder()
-        // Override an API definition that was decorated by a previous plugin
-        .api("core.test", () => Promise.resolve(true))
-      // Reference API methods that are dependancies of the current plugin
-      // .api("dependancy.test", async () =>
-      //   Promise.resolve(await authServer.api.core.test())
-      // )
-    );
+  registerApi(authServer: AuthServer<UnionToIntersection<PluginApi<OverridePlugin["dependencies"][number]>>>) {
+    return new ApiBuilder()
+      .api("use.dependency.ok", async () => await authServer.@M3shapi.plugin.ok()) // this will use the ExamplePlugin plugin.ok
+      .api("plugin.ok", () => Promise.resolve(false)); // This will override the previous plugin.ok
   }
 }
-
-const examplePlugin = new BasePlugin();
+const examplePlugin = new ExamplePlugin();
 const overridePlugin = new OverridePlugin();
 
 test("AuthServer", async () => {
@@ -47,6 +39,6 @@ test("AuthServer", async () => {
   expect(authServer).toBeInstanceOf(AuthServer);
 
   expect(await authServer.api.ok()).toBeTrue();
-  expect(await authServer.api.plugin.ok()).toBeTrue();
-  expect(await authServer.api.core.test()).toBeTrue();
+  expect(await authServer.api.plugin.ok()).toBeFalse();
+  expect(await authServer.api.use.dependency.ok()).toBeTrue();
 });

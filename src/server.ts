@@ -1,20 +1,6 @@
-import { mergeDeepRight, assocPath } from "ramda";
-import type {
-  TBaseApi,
-  TBaseRoutes,
-  TBaseMiddleware,
-  PathToObj,
-  TAsyncFunc,
-  UnionToIntersection,
-} from "./utils/types";
+import { assocPath } from "ramda";
+import type { TBaseApi, TBaseRoutes, TBaseMiddleware, PathToObj, TAsyncFunc, UnionToIntersection, PluginApi } from "./utils/types";
 import type AbstractServerPlugin from "./plugins/abstract-server-plugin";
-import ApiBuilder from "./utils/api-builder";
-
-export type PluginApi<P> = P extends {
-  registerApi(...a: any): ApiBuilder<infer A>;
-}
-  ? A
-  : never;
 
 type TAuthServerParams<TApi, TRoutes, TMiddleware> = {
   api?: TApi;
