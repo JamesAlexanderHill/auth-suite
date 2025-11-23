@@ -5,7 +5,7 @@ import ApiBuilder from "./utils/api-builder";
 import AbstractServerPlugin from "./plugins/abstract-server-plugin";
 import type { PluginApi, UnionToIntersection } from "./utils/types";
 
-class BasePlugin extends AbstractServerPlugin {
+class ExamplePlugin extends AbstractServerPlugin {
   constructor() {
     super();
   }
@@ -24,7 +24,7 @@ class OverridePlugin extends AbstractServerPlugin {
 
   registerApi(authServer: AuthServer<UnionToIntersection<PluginApi<OverridePlugin["dependencies"][number]>>>) {
     return new ApiBuilder()
-      .api("use.dependency.ok", async () => await authServer.@M3shapi.plugin.ok()) // this will use the ExamplePlugin plugin.ok
+      .api("use.dependency.ok", async () => await authServer.api.plugin.ok()) // this will use the ExamplePlugin plugin.ok
       .api("plugin.ok", () => Promise.resolve(false)); // This will override the previous plugin.ok
   }
 }
