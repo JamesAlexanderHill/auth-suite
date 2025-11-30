@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import AuthServer, { type PluginApi } from "./server";
+import AuthServer from "./server";
 import ApiBuilder from "./utils/api-builder";
 import AbstractServerPlugin from "./plugins/abstract-server-plugin";
 import type { PluginApi, UnionToIntersection } from "./utils/types";
@@ -19,12 +19,12 @@ class ExamplePlugin extends AbstractServerPlugin {
 class OverridePlugin extends AbstractServerPlugin {
   public dependencies = [ExamplePlugin];
   constructor() {
-    super()
+    super();
   }
 
-  registerApi(authServer: AuthServer<UnionToIntersection<PluginApi<OverridePlugin["dependencies"][number]>>>) {
+  registerApi(authServer: AuthServer<PluginApi<ExamplePlugin>>) {
     return new ApiBuilder()
-      .api("use.dependency.ok", async () => await authServer.api.plugin.ok()) // this will use the ExamplePlugin plugin.ok
+      .api("use.dependency.ok", async () => await authServer.api.plugin.ok()) // this will use the Override plugin.ok since it would be overwritten at runtime
       .api("plugin.ok", () => Promise.resolve(false)); // This will override the previous plugin.ok
   }
 }
@@ -40,5 +40,5 @@ test("AuthServer", async () => {
 
   expect(await authServer.api.ok()).toBeTrue();
   expect(await authServer.api.plugin.ok()).toBeFalse();
-  expect(await authServer.api.use.dependency.ok()).toBeTrue();
+  expect(await authServer.api.use.dependency.ok()).toBeFalse();
 });
