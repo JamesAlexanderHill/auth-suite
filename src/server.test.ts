@@ -3,8 +3,10 @@ import { describe, expect, test } from "bun:test";
 import AuthServer from "./server";
 import ApiBuilder from "./utils/api-builder";
 import AbstractServerPlugin from "./plugins/abstract-server-plugin";
-import type { PluginApi, UnionToIntersection } from "./utils/types";
+import type { PluginApi } from "./utils/types";
 
+type AuthServerWithDeps<ClassReference extends typeof AbstractServerPlugin> =
+  AuthServer<PluginApi<InstanceType<ClassReference["dependencies"][number]>>>;
 class ExamplePlugin extends AbstractServerPlugin {
   constructor() {
     super();
@@ -17,15 +19,16 @@ class ExamplePlugin extends AbstractServerPlugin {
   }
 }
 class OverridePlugin extends AbstractServerPlugin {
-  public dependencies = [ExamplePlugin];
+  public static override readonly dependencies = [ExamplePlugin];
+
   constructor() {
     super();
   }
 
-  registerApi(authServer: AuthServer<PluginApi<ExamplePlugin>>) {
+  registerApi(authServer: AuthServerWithDeps<typeof OverridePlugin>) {
     return new ApiBuilder()
-      .api("use.dependency.ok", async () => await authServer.api.plugin.ok()) // this will use the Override plugin.ok since it would be overwritten at runtime
-      .api("plugin.ok", () => Promise.resolve(false)); // This will override the previous plugin.ok
+      .api("use.dependency.ok", async () => await authServer.api.plugin.ok()) // this will use the examplePlugin plugin.ok
+      .api("plugin.ok", () => Promise.resolve(false)); // This will override the examplePlugin plugin.ok
   }
 }
 const examplePlugin = new ExamplePlugin();

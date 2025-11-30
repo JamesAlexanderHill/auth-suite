@@ -8,7 +8,7 @@ type AbstractServerPluginConstructor = {
 } & typeof AbstractServerPlugin;
 
 export default abstract class AbstractServerPlugin {
-  protected readonly dependencies: AbstractServerPluginConstructor[] = [];
+  public static readonly dependencies: AbstractServerPluginConstructor[] = [];
 
   public abstract registerApi(
     authServer: AuthServer<TBaseApi, TBaseRoutes, TBaseMiddleware>

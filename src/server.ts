@@ -49,9 +49,9 @@ export default class AuthServer<
     });
   }
 
-  /** Merge an array of other AuthServer instances (plugins) */
+  /** Register multiple plugins */
   registerPlugins<P extends readonly AbstractServerPlugin[]>(plugins: P) {
-    type FromPlugins = UnionToIntersection<PluginApi<P[number]>>;
+    type PApi = UnionToIntersection<PluginApi<P[number]>>;
 
     let authServer: AuthServer<TApi, TRoutes, TMiddleware> = this;
 
@@ -59,9 +59,10 @@ export default class AuthServer<
       authServer = authServer.registerPlugin(plugin);
     }
 
-    return authServer as AuthServer<TApi & FromPlugins, TRoutes, TMiddleware>;
+    return authServer as AuthServer<TApi & PApi, TRoutes, TMiddleware>;
   }
 
+  /** Register a plugin */
   registerPlugin<P extends AbstractServerPlugin>(plugin: P) {
     const builder = plugin.registerApi(this);
     const builtApi = builder.build() as PluginApi<P>;
@@ -78,9 +79,5 @@ export default class AuthServer<
   /** Return the fully-typed merged API */
   get api(): TApi {
     return this._api;
-  }
-
-  set api(newApi: TApi) {
-    this._api = newApi;
   }
 }
