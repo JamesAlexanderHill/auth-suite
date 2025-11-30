@@ -53,24 +53,26 @@ export default class AuthServer<
   registerPlugins<P extends readonly AbstractServerPlugin[]>(plugins: P) {
     type FromPlugins = UnionToIntersection<PluginApi<P[number]>>;
 
-    for (const plugin of plugins) {
-      const builder = plugin.registerApi(this); // using this is incorrect, unless I want to
-      const built = builder.build();
+    let authServer: AuthServer<TApi, TRoutes, TMiddleware> = this;
 
-      this.api = { ...this.api, ...built } as TApi & FromPlugins;
+    for (const plugin of plugins) {
+      authServer = authServer.registerPlugin(plugin);
     }
 
-    return this as unknown as AuthServer<
-      TApi & FromPlugins,
-      TRoutes,
-      TMiddleware
-    >;
+    return authServer as AuthServer<TApi & FromPlugins, TRoutes, TMiddleware>;
+  }
 
-    // return new AuthServer<TApi & FromPlugins, TRoutes, TMiddleware>({
-    //   api: mergedApi,
-    //   routes: this._routes,
-    //   middleware: this._middleware,
-    // });
+  registerPlugin<P extends AbstractServerPlugin>(plugin: P) {
+    const builder = plugin.registerApi(this);
+    const builtApi = builder.build() as PluginApi<P>;
+
+    const newApi = { ...this.api, ...builtApi };
+
+    return new AuthServer<TApi & PluginApi<P>, TRoutes, TMiddleware>({
+      api: newApi,
+      routes: this._routes,
+      middleware: this._middleware,
+    });
   }
 
   /** Return the fully-typed merged API */
