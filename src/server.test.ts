@@ -3,10 +3,8 @@ import { describe, expect, test } from "bun:test";
 import AuthServer from "./server";
 import ApiBuilder from "./utils/api-builder";
 import AbstractServerPlugin from "./plugins/abstract-server-plugin";
-import type { PluginApi } from "./utils/types";
+import type { AuthServerWithDeps } from "./utils/types";
 
-type AuthServerWithDeps<ClassReference extends typeof AbstractServerPlugin> =
-  AuthServer<PluginApi<InstanceType<ClassReference["dependencies"][number]>>>;
 class ExamplePlugin extends AbstractServerPlugin {
   constructor() {
     super();
