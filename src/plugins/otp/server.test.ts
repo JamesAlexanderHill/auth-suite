@@ -1,6 +1,6 @@
 import { describe, expect, test, spyOn } from "bun:test";
 
-import defineOtpServerPlugin from "./server";
+import OtpServerPlugin from "./server";
 import AuthServer from "../../server";
 import { MemoryOtpRepository } from "./repository/otp";
 
@@ -15,14 +15,14 @@ const DUMMY_OTP = {
 describe("OTP Plugin", async () => {
   const callback = {
     sendOtpEmail: async (otp: string, email: string) =>
-      console.log(`OTP (${Option}) email sent to ${email}`),
+      console.log(`OTP (${otp}) email sent to ${email}`),
   };
 
-  const otpServerPlugin = defineOtpServerPlugin({
+  const otpServerPlugin = new OtpServerPlugin({
     otpRepository: new MemoryOtpRepository(),
     callback,
   });
-  const authServer = new AuthServer().registerPlugins([otpServerPlugin]);
+  const authServer = new AuthServer({}).registerPlugins([otpServerPlugin]);
 
   expect(authServer).toBeInstanceOf(AuthServer);
 

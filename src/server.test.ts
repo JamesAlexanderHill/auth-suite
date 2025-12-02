@@ -1,19 +1,60 @@
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 import AuthServer from "./server";
 import ApiBuilder from "./utils/api-builder";
+import AbstractServerPlugin from "./plugins/abstract-server-plugin";
+import type { AuthServerWithDeps } from "./utils/types";
 
-const examplePlugin = new AuthServer().registerApi(
-  new ApiBuilder().api("plugin.ok", () => Promise.resolve(true))
-);
+class ExamplePlugin extends AbstractServerPlugin {
+  constructor() {
+    super();
+  }
 
-test("AuthServer", async () => {
-  const authServer = new AuthServer()
-    .registerPlugins([examplePlugin])
-    .registerApi(new ApiBuilder().api("ok", () => Promise.resolve(true)));
+  registerApi(_authServer: AuthServer) {
+    return new ApiBuilder()
+      .api("plugin.ok", () => Promise.resolve(true))
+      .api("core.test", () => Promise.resolve(false));
+  }
+}
+class OverridePlugin extends AbstractServerPlugin {
+  public static override readonly dependencies = [ExamplePlugin];
 
-  expect(authServer).toBeInstanceOf(AuthServer);
+  constructor() {
+    super();
+  }
 
-  expect(await authServer.api.ok()).toBeTrue();
-  expect(await authServer.api.plugin.ok()).toBeTrue();
+  registerApi(authServer: AuthServerWithDeps<typeof OverridePlugin>) {
+    return new ApiBuilder()
+      .api("use.dependency.ok", async () => await authServer.api.plugin.ok()) // this will use the examplePlugin plugin.ok
+      .api("plugin.ok", () => Promise.resolve(false)); // This will override the examplePlugin plugin.ok
+  }
+}
+const examplePlugin = new ExamplePlugin();
+const overridePlugin = new OverridePlugin();
+
+describe("AuthServer", async () => {
+  test("registerPlugin", async () => {
+    const authServer = new AuthServer({})
+      .registerPlugin(examplePlugin)
+      .registerPlugin(overridePlugin)
+      .registerApi("ok", () => Promise.resolve(true));
+
+    expect(authServer).toBeInstanceOf(AuthServer);
+
+    expect(await authServer.api.ok()).toBeTrue();
+    expect(await authServer.api.plugin.ok()).toBeFalse();
+    expect(await authServer.api.use.dependency.ok()).toBeTrue();
+  });
+
+  test("registerPlugins", async () => {
+    const authServer = new AuthServer({})
+      .registerPlugins([examplePlugin, overridePlugin])
+      .registerApi("ok", () => Promise.resolve(true));
+
+    expect(authServer).toBeInstanceOf(AuthServer);
+
+    expect(await authServer.api.ok()).toBeTrue();
+    expect(await authServer.api.plugin.ok()).toBeFalse();
+    expect(await authServer.api.use.dependency.ok()).toBeTrue();
+  });
 });

@@ -4,66 +4,31 @@ Auth Suite is an authentication framework focused on DX, extensibility and secur
 Server SDK will support decorating the authServer instance with plugins, routes, middleware and API methods.
 Client SDK will support decorating the auth client instance with plugins and API methods.
 
-Plugins themselves will be instances of an authServer or authClient (heavily inspired by ElysiaJS). So they can be packaged as standalone plugins that extended an authClient or authServer instance in a modular way.
+Server plugins will extend an abstract and define methods registerApi, registerRoutes and registerMiddleware. These methods will have the current authServer instance as a parameter and will return utility builder instances like ApiBuilder
 
 ## High-level API
 
+### AuthServer API
+
 ```
-type OtpOptions = {
-    otpRepository: OtpRepository,
-    callbacks: {
-        sendOtpEmail: (otp: string, email: string) => Promise<boolean>
+const authServer = new AuthServer()
+    .registerApi('example.double', async (num: number) => return num * 2)
+
+const exampleTwenty = = await authServer.api.example.double(10);
+```
+
+### ServerPlugin API
+
+```
+class ExampleServerPlugin extends AbstractServerPlugin {
+    public registerApi(_authServer: AuthServer) {
+        return new ApiBuilder()
+            .api('example.double', async (num: number) => return num * 2)
     }
 }
 
-function createOtpPlugin(options: OtpOptions) {
-    const otpApi = new ApiBuilder()
-        .api(‘otp.storeOtp’, async (otpRecord) => await otpRepository.create({…otpRecord}))
-        .api(‘otp.sendOtp’, async (otp, email) => await callbacks.sendOtpEmail(otp, email));
+const exampleServerPlugin = new ExampleServerPlugin()
 
-    const otpMiddleware = new MiddlewareBuilder()
-        .beforeRoute(‘/example/route/:id, async ({next}) => next());
-
-    const otpRoutes = new RouteBuilder()
-        .post(‘/example/route/:id’, ({ctx}) => new Response.json({success: true, id: ctx.params.id}), {
-            protected: true,
-            schema: params: z.object({
-                id: z.uuid4()
-            })
-        })
-        .post(‘/otp/send’, async ({ctx, authServer}) => {
-            const email = ctx.body.email;
-
-            try {
-                const otp = await authServer.api.otp.generate();
-                const storedOtp = await authServer.api.otp.storeOtp({…otp, otherDetails})
-
-                await authServer.api.otp.sendOtp(otp, email)
-
-                return new Response.json({success: true})
-            } catch (err) {
-                return new Response.json({success: false}, { status: 400 })
-            }
-        }, {
-            protected: false,
-            schema: {
-                body: z.object({
-                    email: z.email()
-                })
-            }
-        })
-
-    return new AuthServer()
-        .registerRoutes(otpRoutes)
-        .registerMiddleware(otpMiddleware)
-        .registerApi(otpApi)
-}
-
-const otpPlugin = createOtpPlugin({
-    callbacks: {
-        sendOtpEmail: await (otp, email) => console.log(‘Send OTP email’, {otp, email})
-    }
-});
 
 const authServer = new AuthServer().plugins([otpPlugin])
 ```
