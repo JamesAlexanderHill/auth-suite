@@ -1,18 +1,20 @@
 {
   "name": "auth-suite",
-  "module": "index.ts",
   "type": "module",
+  "exports": {
+    "./server": "./src/server.ts",
+    "./server/plugins": "./src/plugins/server.ts",
+    "./server/utils": "./src/utils/server.ts"
+  },
   "script": {},
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/lodash": "^4.17.20",
     "@types/ramda": "^0.31.1"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "lodash": "^4.17.21",
     "ramda": "^0.32.0"
   }
 }
