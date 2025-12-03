@@ -3,7 +3,8 @@ import { type IOtpRepository } from "./repository/otp";
 import type { TBaseOtp } from "./types";
 import ApiBuilder from "../../utils/api-builder";
 import AbstractServerPlugin from "../abstract-server-plugin";
-import type { TBaseApi } from '../../utils/types';
+import type { AuthServerWithDeps, TBaseApi } from '../../utils/types';
+import { corePlugin } from "../server";
 
 async function defaultGenerateOtp() {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -20,6 +21,8 @@ type OtpServerPluginParams = {
 };
 
 export default class OtpServerPlugin extends AbstractServerPlugin {
+  public static override readonly dependencies = [corePlugin];
+
   private _callback;
   private _otpRepository;
 
@@ -30,7 +33,7 @@ export default class OtpServerPlugin extends AbstractServerPlugin {
     this._otpRepository = params.otpRepository;
   }
 
-  public registerApi(_authServer: AuthServer) {
+  public registerApi(_authServer: AuthServerWithDeps<typeof OtpServerPlugin>) {
     return new ApiBuilder()
       .api("otp.generate", async () => {
         const otp =
@@ -51,5 +54,9 @@ export default class OtpServerPlugin extends AbstractServerPlugin {
           return false;
         }
       });
+  }
+
+  public registerRoutes() {
+    return new RouteBuilder()
   }
 }
