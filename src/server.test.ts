@@ -35,9 +35,9 @@ const overridePlugin = new OverridePlugin();
 describe("AuthServer", async () => {
   test("registerPlugin", async () => {
     const authServer = new AuthServer({})
-      .registerPlugin(examplePlugin)
-      .registerPlugin(overridePlugin)
-      .registerApi("ok", () => Promise.resolve(true));
+    .registerPlugin(examplePlugin)
+    .registerPlugin(overridePlugin)
+    .registerApi("ok", () => Promise.resolve(true));
 
     expect(authServer).toBeInstanceOf(AuthServer);
 
