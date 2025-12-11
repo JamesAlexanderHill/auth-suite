@@ -9,13 +9,15 @@
   "script": {},
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/ramda": "^0.31.1"
+    "@types/ramda": "^0.31.1",
+    "@types/url-params-parser": "^1.0.3"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
     "ramda": "^0.32.0",
+    "url-params-parser": "^1.0.4",
     "zod": "^4.1.13"
   }
 }

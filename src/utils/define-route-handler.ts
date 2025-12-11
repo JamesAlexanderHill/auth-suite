@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { UrlParser } from "url-params-parser";
+
 import { error } from "./response";
 
 type PlainSchema = {
@@ -25,6 +27,7 @@ type AugmentedCtx<S> = {
 };
 
 export type RouteHandler<S> = {
+  url: string;
   handler: ({ req, ctx }: { req: Request; ctx: any }) => Promise<Response>;
   options: { protected?: boolean; schema?: S };
 };
@@ -44,6 +47,7 @@ const DEFAULT_OPTIONS = {
 function defineRouteHandler<
   const S extends PlainSchema | undefined = undefined
 >(
+  url: string,
   handler: (args: {
     req: Request;
     ctx: AugmentedCtx<NonNullable<S>>;
@@ -52,13 +56,17 @@ function defineRouteHandler<
 ): RouteHandler<S> {
   const wrappedHandler = async ({ req, ctx }: { req: Request; ctx: S }) => {
     const schema = options?.schema;
+
     let body: unknown = undefined;
     let params: unknown = undefined;
     let query: unknown = undefined;
 
+    const reqUrl = new URL(req.url);
+
     if (schema?.body) {
       const json = await req.json();
       const parsed = schema.body.safeParse(json);
+
       if (!parsed.success) {
         return error("Invalid body");
       }
@@ -67,17 +75,25 @@ function defineRouteHandler<
     }
 
     if (schema?.query) {
-      const url = new URL(req.url);
-      const queryParams = Object.fromEntries(url.searchParams.entries());
+      const queryParams = Object.fromEntries(reqUrl.searchParams.entries());
       const parsed = schema.query.safeParse(queryParams);
+
       if (!parsed.success) {
         return error("Invalid query params");
       }
+
       query = parsed.data;
     }
 
     if (schema?.params) {
-      // TODO get params from request URL. Pattern should follow something like /users/:userId
+      const urlParser = UrlParser(reqUrl.href, url);
+      const parsed = schema.params.safeParse(urlParser.namedParams);
+
+      if (!parsed.success) {
+        return error("Invalid URL params");
+      }
+
+      params = parsed.data;
     }
 
     const requestCtx = {
@@ -92,7 +108,7 @@ function defineRouteHandler<
 
   const finalOptions = Object.assign({}, DEFAULT_OPTIONS, options);
 
-  return { handler: wrappedHandler, options: finalOptions };
+  return { url, handler: wrappedHandler, options: finalOptions };
 }
 
 export default defineRouteHandler;
