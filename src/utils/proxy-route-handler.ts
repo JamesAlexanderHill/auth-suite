@@ -42,16 +42,15 @@ const DEFAULT_OPTIONS: RouteOptions<undefined> = {
  * - If schema has only `params`, ctx has only `params`.
  * - If schema has `body` + `query`, ctx has only `body` and `query`.
  */
-function defineRouteHandler<
+function proxyRouteHandler<
   const S extends OptionSchema | undefined = undefined
 >(
   url: string,
   handler: (args: { req: Request; ctx: AugmentedCtx<S> }) => Promise<Response>,
   options?: Partial<RouteOptions<S>>
 ): RouteHandler<S> {
-  const wrappedHandler = async (req: Request) => {
+  const proxiedHandler = async (req: Request) => {
     const { schema, ...otherOptions } = options || {};
-    console.log("===", req);
     const reqUrl = new URL(req.url);
 
     let parsedBody: unknown;
@@ -106,7 +105,7 @@ function defineRouteHandler<
     ...options,
   };
 
-  return { url, handler: wrappedHandler, options: finalOptions };
+  return { url, handler: proxiedHandler, options: finalOptions };
 }
 
-export default defineRouteHandler;
+export default proxyRouteHandler;

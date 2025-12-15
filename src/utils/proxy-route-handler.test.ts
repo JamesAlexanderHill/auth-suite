@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 
-import defineRouteHandler from "./define-route-handler";
+import proxyRouteHandler from "./proxy-route-handler";
 import { json } from "./response";
 
-describe("defineRouteHandler", () => {
+describe("proxyRouteHandler", () => {
   test("Returns a wrapped handler", async () => {
     const url = "/route/example";
     const options = {
@@ -15,7 +15,7 @@ describe("defineRouteHandler", () => {
       },
     };
 
-    const routeHandler = defineRouteHandler(
+    const routeHandler = proxyRouteHandler(
       url,
       ({ req, ctx }) => {
         const email = ctx.query.email;
