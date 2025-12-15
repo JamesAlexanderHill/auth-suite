@@ -4,76 +4,98 @@ import { z } from "zod";
 
 import RouteBuilder from "./route-builder";
 import { json } from "./response";
-import defineRouteHandler from "./define-route-handler";
 
 const DUMMY_UUID = "744a00b7-fcd1-48f7-9d39-6f2d59a6b0ba";
+const DUMMY_EMAIL = "mail@example.com";
 
 describe("RouteBuilder", () => {
   const routeBuilder = new RouteBuilder()
-    .get(
-      "/test/route",
-      defineRouteHandler(
-        "/test/route",
-        async ({ req, ctx }) =>
-          json({
-            message: `OTP has been sent to ${ctx.body.email}`,
+    .post(
+      "/example/route",
+      async ({ ctx }) =>
+        json({
+          email: ctx.body.email,
+        }),
+      {
+        schema: {
+          body: z.object({
+            email: z.email(),
           }),
-        {
-          protected: false, // this route is public, will need to add rate-limiting
-          schema: {
-            body: z.object({
-              email: z.uuidv4(),
-            }),
-          },
-        }
-      )
+        },
+      }
     )
     .post(
-      "/test/route/:id",
-      defineRouteHandler(
-        "/test/route/:id",
-        async ({ req, ctx }) =>
-          json({
-            id: ctx.params.id,
+      "/another/example/route/:id",
+      async ({ ctx }) =>
+        json({
+          id: ctx.params.id,
+        }),
+      {
+        schema: {
+          params: z.object({
+            id: z.uuidv4(),
           }),
-        {
-          protected: false, // this route is public, will need to add rate-limiting
-          schema: {
-            params: z.object({
-              id: z.uuidv4(),
-            }),
-          },
-        }
-      )
+        },
+      }
+    )
+    .get(
+      "/example/route",
+      async ({ ctx }) =>
+        json({
+          email: ctx.query.email,
+        }),
+      {
+        schema: {
+          query: z.object({
+            email: z.email(),
+          }),
+        },
+      }
     );
 
   test("build() returns final route object", async () => {
     const builtRoute = routeBuilder.build();
 
-    expect(builtRoute["/test/route"]).toHaveProperty("GET");
-    expect(builtRoute["/test/route/:id"]).toHaveProperty("POST");
+    expect(builtRoute["/example/route"]).toHaveProperty("GET");
+    expect(builtRoute["/example/route"]).toHaveProperty("POST");
+    expect(builtRoute["/example/route"]).not.toHaveProperty("PATCH");
+    expect(builtRoute["/example/route"]).not.toHaveProperty("DELETE");
+    expect(builtRoute["/another/example/route/:id"]).toHaveProperty("POST");
   });
 
-  // test("handle basic get request", async () => {
-  //   const builtRoute = routeBuilder.build();
-
-  //   const res = await handleRequest(
-  //     builtRoute,
-  //     new Request("https://example.com/test/route")
-  //   );
-  //   expect(res.json()).toBeDefined();
-  // });
-
-  test("handle post request with URL params", async () => {
+  test("handle GET request with query params", async () => {
     const builtRoute = routeBuilder.build();
-
-    const res = await builtRoute["/test/route/:id"].POST.handler({
-      req: new Request(`https://example.com/test/route/${DUMMY_UUID}`),
-      ctx: { params: { id: DUMMY_UUID } },
-    });
-
+    const res = await builtRoute["/example/route"].GET.handler(
+      new Request(`http://example.com/test/route?email=${DUMMY_EMAIL}`)
+    );
     const resJson = await res.json();
 
-    expect(resJson).toContainKey("id");
+    expect(resJson.email).toEqual(DUMMY_EMAIL);
+  });
+
+  test("handle POST request with URL params", async () => {
+    const builtRoute = routeBuilder.build();
+    const res = await builtRoute["/another/example/route/:id"].POST.handler(
+      new Request(`http://example.com/another/example/route/${DUMMY_UUID}`, {
+        method: "POST",
+      })
+    );
+    const resJson = await res.json();
+
+    expect(resJson.id).toEqual(DUMMY_UUID);
+  });
+
+  test("handle POST request with body", async () => {
+    const builtRoute = routeBuilder.build();
+    const res = await builtRoute["/example/route"].POST.handler(
+      new Request(`http://example.com/test/route`, {
+        method: "POST",
+        body: JSON.stringify({ email: DUMMY_EMAIL }),
+      })
+    );
+    const resJson = await res.json();
+    console.log(resJson);
+
+    expect(resJson.email).toEqual(DUMMY_EMAIL);
   });
 });

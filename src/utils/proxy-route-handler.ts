@@ -3,7 +3,7 @@ import { UrlParser } from "url-params-parser";
 
 import { error } from "./response";
 
-type OptionSchema = {
+export type OptionSchema = {
   body?: z.ZodType;
   query?: z.ZodType;
   params?: z.ZodType;
@@ -15,10 +15,9 @@ type CtxFromSchema<S extends OptionSchema> = {
     : never;
 };
 
-type AugmentedCtx<S extends OptionSchema | undefined> = (S extends OptionSchema
-  ? CtxFromSchema<S>
-  : {}) &
-  Omit<RouteOptions<undefined>, "schema">;
+export type AugmentedCtx<S extends OptionSchema | undefined> =
+  (S extends OptionSchema ? CtxFromSchema<S> : {}) &
+    Omit<RouteOptions<undefined>, "schema">;
 
 type RouteOptions<S extends OptionSchema | undefined> = {
   protected: boolean;
@@ -71,6 +70,8 @@ function proxyRouteHandler<
     if (schema?.query) {
       const queryParams = Object.fromEntries(reqUrl.searchParams.entries());
       const parsed = schema.query.safeParse(queryParams);
+
+      console.log(queryParams, parsed);
 
       if (!parsed.success) {
         return error("Invalid query params");

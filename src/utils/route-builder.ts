@@ -1,96 +1,139 @@
-import assocPath from "ramda/src/assocPath";
-import { z } from "zod";
+// src/utils/route-builder.ts
+import proxyRouteHandler, {
+  type AugmentedCtx,
+  type OptionSchema,
+  type RouteHandler,
+} from "./proxy-route-handler";
+import type { HttpMethod, TBaseRoutes } from "./types";
 
-import type { HttpMethod, TBaseRoutes, TAsyncFunc, DeepMerge } from "./types";
+export default class RouteBuilder<TRoutesAcc extends TBaseRoutes = {}> {
+  private _routes: TRoutesAcc;
 
-// TODO: replace this with something exported from define-route-handler.ts? need to figure out how to handle generic zod schema?
-type TDefineRouteHandler<H extends TAsyncFunc> = {
-  handler: H;
-  options: Record<string, any>;
-};
-
-type RouteRecord<
-  U extends string,
-  M extends HttpMethod,
-  H extends TAsyncFunc,
-  O extends Record<string, any>
-> = {
-  [K in U]: {
-    [MK in M]: { handler: H; options: O };
-  };
-};
-
-export default class RouteBuilder<TRoutes extends TBaseRoutes = {}> {
-  private _routes: TRoutes;
-
-  constructor(routes?: TRoutes) {
-    this._routes = (routes ?? {}) as TRoutes;
+  constructor(routes: TRoutesAcc = {} as TRoutesAcc) {
+    this._routes = routes;
   }
 
-  private defineRoute<
-    M extends HttpMethod,
-    U extends string,
-    H extends TAsyncFunc,
-    O extends Record<string, any>
-  >(method: M, url: U, handler: H, options: Record<string, any>) {
-    const newRoutes = assocPath(
-      [url, method],
-      { handler, options },
-      this._routes
-    ) as TRoutes & RouteRecord<U, M, H, O>;
-
-    return new RouteBuilder(newRoutes);
-  }
-
-  public get<U extends string, H extends TAsyncFunc>(
-    url: U,
-    routeHandler: TDefineRouteHandler<H>
+  /**
+   * Register a route for a given path + HTTP method.
+   *
+   * Fully typed:
+   * - `ctx` is inferred from the `schema` (body/query/params)
+   * - `options` are the same as proxyRouteHandler options
+   * - The accumulator type grows as you chain .route() calls
+   */
+  public route<
+    Path extends string,
+    Method extends HttpMethod,
+    S extends OptionSchema | undefined = undefined
+  >(
+    path: Path,
+    method: Method,
+    handler: (args: {
+      req: Request;
+      ctx: AugmentedCtx<S>;
+    }) => Promise<Response>,
+    options?: RouteHandler<S>["options"]
   ) {
-    return this.defineRoute(
-      "GET",
-      url,
-      routeHandler.handler,
-      routeHandler.options
-    );
+    const route = proxyRouteHandler<S>(path, handler, options);
+
+    const existingForPath = (this._routes as TBaseRoutes)[path] ?? {};
+
+    const updatedForPath = {
+      ...existingForPath,
+      [method]: route,
+    };
+
+    // Typing trick to grow the accumulator:
+    // - If `path` already exists, we add/override a method
+    // - If `path` is new, we create it with this single method
+    type NewRoutes = TRoutesAcc & {
+      [P in Path]: (P extends keyof TRoutesAcc ? TRoutesAcc[P] : {}) & {
+        [M in Method]: RouteHandler<S>;
+      };
+    };
+
+    const newRoutes = {
+      ...(this._routes as object),
+      [path]: updatedForPath,
+    } as NewRoutes;
+
+    return new RouteBuilder<NewRoutes>(newRoutes);
   }
 
-  public post<U extends string, H extends TAsyncFunc>(
-    url: U,
-    routeHandler: TDefineRouteHandler<H>
+  /**
+   * Small ergonomics: sugar for common HTTP verbs.
+   */
+  public get<
+    Path extends string,
+    S extends OptionSchema | undefined = undefined
+  >(
+    path: Path,
+    handler: (args: {
+      req: Request;
+      ctx: AugmentedCtx<S>;
+    }) => Promise<Response>,
+    options?: RouteHandler<S>["options"]
   ) {
-    return this.defineRoute(
-      "POST",
-      url,
-      routeHandler.handler,
-      routeHandler.options
-    );
+    return this.route(path, "GET", handler, options);
   }
 
-  public patch<U extends string, H extends TAsyncFunc>(
-    url: U,
-    routeHandler: TDefineRouteHandler<H>
+  public post<
+    Path extends string,
+    S extends OptionSchema | undefined = undefined
+  >(
+    path: Path,
+    handler: (args: {
+      req: Request;
+      ctx: AugmentedCtx<S>;
+    }) => Promise<Response>,
+    options?: RouteHandler<S>["options"]
   ) {
-    return this.defineRoute(
-      "PATCH",
-      url,
-      routeHandler.handler,
-      routeHandler.options
-    );
+    return this.route(path, "POST", handler, options);
   }
 
-  public delete<U extends string, H extends TAsyncFunc>(
-    url: U,
-    routeHandler: TDefineRouteHandler<H>
+  public put<
+    Path extends string,
+    S extends OptionSchema | undefined = undefined
+  >(
+    path: Path,
+    handler: (args: {
+      req: Request;
+      ctx: AugmentedCtx<S>;
+    }) => Promise<Response>,
+    options?: RouteHandler<S>["options"]
   ) {
-    return this.defineRoute(
-      "DELETE",
-      url,
-      routeHandler.handler,
-      routeHandler.options
-    );
+    return this.route(path, "PUT", handler, options);
   }
 
-  public build(): TRoutes {
+  public del<
+    Path extends string,
+    S extends OptionSchema | undefined = undefined
+  >(
+    path: Path,
+    handler: (args: {
+      req: Request;
+      ctx: AugmentedCtx<S>;
+    }) => Promise<Response>,
+    options?: RouteHandler<S>["options"]
+  ) {
+    return this.route(path, "DELETE", handler, options);
+  }
+
+  public patch<
+    Path extends string,
+    S extends OptionSchema | undefined = undefined
+  >(
+    path: Path,
+    handler: (args: {
+      req: Request;
+      ctx: AugmentedCtx<S>;
+    }) => Promise<Response>,
+    options?: RouteHandler<S>["options"]
+  ) {
+    return this.route(path, "PATCH", handler, options);
+  }
+
+  public build(): TRoutesAcc {
     return this._routes;
   }
 }

@@ -1,11 +1,12 @@
-import type {AbstractServerPluginClass} from "../plugins/abstract-server-plugin";
+import type { AbstractServerPluginClass } from "../plugins/abstract-server-plugin";
 import type AuthServer from "../server";
 import type ApiBuilder from "./api-builder";
+import type { RouteHandler } from "./proxy-route-handler";
 
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type Fn = (...args: any[]) => any;
 type NonMergeable = Primitive | Fn | Date | RegExp | Array<any>;
-export type HttpMethod = "GET" | "POST" | "DELETE" | "PATCH";
+export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 export type DeepMerge<A, B> = {
   [K in keyof A | keyof B]: K extends keyof A
@@ -33,13 +34,10 @@ export type TBaseApi =
       [key: string]: TAsyncFunc | TBaseApi | undefined;
     }
   | {};
-export type TBaseRoutes =
-  | {
-      [path: string]: {
-        [M in HttpMethod]?: TAsyncFunc;
-      };
-    }
-  | {};
+export type TBaseRoutes = Record<
+  string,
+  Partial<Record<HttpMethod, RouteHandler<any>>>
+>;
 export type TBaseMiddleware = unknown;
 export type PathToObj<S extends string, V> = S extends `${infer H}.${infer T}`
   ? { [K in H]: PathToObj<T, V> }
@@ -53,11 +51,4 @@ export type PluginApi<P> = P extends {
 
 export type AuthServerWithDeps<
   ClassReference extends AbstractServerPluginClass
-> =
-  AuthServer<
-    PluginApi<
-      InstanceType<
-        ClassReference["dependencies"][number]
-      >
-    >
-  >;
+> = AuthServer<PluginApi<InstanceType<ClassReference["dependencies"][number]>>>;
