@@ -3,65 +3,60 @@ import { UrlParser } from "url-params-parser";
 
 import { error } from "./response";
 
-type PlainSchema = {
+type OptionSchema = {
   body?: z.ZodType;
   query?: z.ZodType;
   params?: z.ZodType;
 };
-type AugmentedCtx<S> = {
-  body: S extends { body: infer B }
-    ? B extends z.ZodType
-      ? z.infer<B>
-      : undefined
-    : undefined;
-  query: S extends { query: infer Q }
-    ? Q extends z.ZodType
-      ? z.infer<Q>
-      : undefined
-    : undefined;
-  params: S extends { params: infer P }
-    ? P extends z.ZodType
-      ? z.infer<P>
-      : undefined
-    : undefined;
+
+type CtxFromSchema<S extends OptionSchema> = {
+  [K in keyof S]: S[K] extends z.ZodType
+    ? z.infer<S[K]> // required
+    : never;
 };
 
-export type RouteHandler<S> = {
+type AugmentedCtx<S extends OptionSchema | undefined> = (S extends OptionSchema
+  ? CtxFromSchema<S>
+  : {}) &
+  Omit<RouteOptions<undefined>, "schema">;
+
+type RouteOptions<S extends OptionSchema | undefined> = {
+  protected: boolean;
+  schema?: S;
+};
+
+export type RouteHandler<S extends OptionSchema | undefined> = {
   url: string;
-  handler: ({ req, ctx }: { req: Request; ctx: any }) => Promise<Response>;
-  options: { protected?: boolean; schema?: S };
+  handler: (req: Request) => Promise<Response>;
+  options: Partial<RouteOptions<S>>;
 };
 
-const DEFAULT_OPTIONS = {
+const DEFAULT_OPTIONS: RouteOptions<undefined> = {
   protected: false,
-  schema: null,
 };
 
 /**
- * Define a route handler with optional schema validation and protection
+ * Define a route handler with optional schema validation and protection.
  *
- * @param handler The route handler function
- * @param options Route options
- * @returns An object containing the wrapped handler and options
+ * `handler`'s `ctx` is strongly typed from `options.schema`:
+ * - If schema has only `params`, ctx has only `params`.
+ * - If schema has `body` + `query`, ctx has only `body` and `query`.
  */
 function defineRouteHandler<
-  const S extends PlainSchema | undefined = undefined
+  const S extends OptionSchema | undefined = undefined
 >(
   url: string,
-  handler: (args: {
-    req: Request;
-    ctx: AugmentedCtx<NonNullable<S>>;
-  }) => Promise<Response>,
-  options?: { protected?: boolean; schema?: S }
+  handler: (args: { req: Request; ctx: AugmentedCtx<S> }) => Promise<Response>,
+  options?: Partial<RouteOptions<S>>
 ): RouteHandler<S> {
-  const wrappedHandler = async ({ req, ctx }: { req: Request; ctx: S }) => {
-    const schema = options?.schema;
-
-    let body: unknown = undefined;
-    let params: unknown = undefined;
-    let query: unknown = undefined;
-
+  const wrappedHandler = async (req: Request) => {
+    const { schema, ...otherOptions } = options || {};
+    console.log("===", req);
     const reqUrl = new URL(req.url);
+
+    let parsedBody: unknown;
+    let parsedQuery: unknown;
+    let parsedParams: unknown;
 
     if (schema?.body) {
       const json = await req.json();
@@ -71,7 +66,7 @@ function defineRouteHandler<
         return error("Invalid body");
       }
 
-      body = parsed.data;
+      parsedBody = parsed.data;
     }
 
     if (schema?.query) {
@@ -82,7 +77,7 @@ function defineRouteHandler<
         return error("Invalid query params");
       }
 
-      query = parsed.data;
+      parsedQuery = parsed.data;
     }
 
     if (schema?.params) {
@@ -93,20 +88,23 @@ function defineRouteHandler<
         return error("Invalid URL params");
       }
 
-      params = parsed.data;
+      parsedParams = parsed.data;
     }
 
     const requestCtx = {
-      ...ctx,
-      body: body as AugmentedCtx<S>["body"],
-      query: query as AugmentedCtx<S>["query"],
-      params: params as AugmentedCtx<S>["params"],
-    };
+      ...otherOptions, // options with schema stripped out
+      ...(schema?.body ? { body: parsedBody } : {}),
+      ...(schema?.query ? { query: parsedQuery } : {}),
+      ...(schema?.params ? { params: parsedParams } : {}),
+    } as AugmentedCtx<S>;
 
     return handler({ req, ctx: requestCtx });
   };
 
-  const finalOptions = Object.assign({}, DEFAULT_OPTIONS, options);
+  const finalOptions: RouteOptions<S> = {
+    ...DEFAULT_OPTIONS,
+    ...options,
+  };
 
   return { url, handler: wrappedHandler, options: finalOptions };
 }
