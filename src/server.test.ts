@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import AuthServer from "./server";
 import ApiBuilder from "./utils/api-builder";
 import AbstractServerPlugin from "./plugins/abstract-server-plugin";
-import type { AuthServerWithDeps } from "./utils/types";
+import type { AuthServerRegisterApi } from "./utils/types";
 
 class ExamplePlugin extends AbstractServerPlugin {
   constructor() {
@@ -23,7 +23,7 @@ class OverridePlugin extends AbstractServerPlugin {
     super();
   }
 
-  registerApi(authServer: AuthServerWithDeps<typeof OverridePlugin>) {
+  registerApi(authServer: AuthServerRegisterApi<typeof OverridePlugin>) {
     return new ApiBuilder()
       .api("use.dependency.ok", async () => await authServer.api.plugin.ok()) // this will use the examplePlugin plugin.ok
       .api("plugin.ok", () => Promise.resolve(false)); // This will override the examplePlugin plugin.ok
@@ -35,9 +35,9 @@ const overridePlugin = new OverridePlugin();
 describe("AuthServer", async () => {
   test("registerPlugin", async () => {
     const authServer = new AuthServer({})
-    .registerPlugin(examplePlugin)
-    .registerPlugin(overridePlugin)
-    .registerApi("ok", () => Promise.resolve(true));
+      .registerPlugin(examplePlugin)
+      .registerPlugin(overridePlugin)
+      .registerApi("ok", () => Promise.resolve(true));
 
     expect(authServer).toBeInstanceOf(AuthServer);
 
