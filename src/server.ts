@@ -10,6 +10,8 @@ import type {
   PluginRoutes,
 } from "./utils/types";
 import type AbstractServerPlugin from "./plugins/abstract-server-plugin";
+import { corePlugin } from "./plugins/server";
+import CoreServerPlugin from "./plugins/core/server";
 
 type AuthServerOptions = {
   baseUrl: string;
@@ -75,6 +77,7 @@ export default class AuthServer<
     let authServer: AuthServer<TApi, TRoutes, TMiddleware> = this;
 
     for (const plugin of plugins) {
+      // TODO: throw error if plugin dependencies havnt already been added to authServer??
       authServer = authServer.registerPlugin(plugin);
     }
 
@@ -86,7 +89,7 @@ export default class AuthServer<
   }
 
   /** Register a plugin */
-  registerPlugin<P extends AbstractServerPlugin>(plugin: P) {
+  private registerPlugin<P extends AbstractServerPlugin>(plugin: P) {
     const apiBuilder = plugin.registerApi(this);
     const builtApi = apiBuilder.build() as PluginApi<P>;
     const newApi = { ...this._api, ...builtApi };

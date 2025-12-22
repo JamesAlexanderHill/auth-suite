@@ -4,7 +4,10 @@ import OtpServerPlugin from "./server";
 import AuthServer from "../../server";
 import { MemoryOtpRepository } from "./repository/otp";
 import type { TBaseOtp } from "./types";
+import CoreServerPlugin from "../core/server";
+import { MemoryUserRepository } from "../core/repository/user";
 
+const EXAMPLE_SECRET = new TextEncoder().encode("test_secret");
 const DUMMY_OTP: Omit<TBaseOtp, "id"> = {
   hashedOtp: "dummy",
   attemptCount: 0,
@@ -198,6 +201,85 @@ describe("OTP Plugin", async () => {
 
       expect(resJson.error).toEqual(`Invalid body`);
       expect(res.status).toEqual(400);
+    });
+  });
+  describe("POST: /otp/verify", async () => {
+    const EXAMPLE_OTP_STRING = "877204";
+    const EXAMPLE_OTP = {
+      hashedOtp:
+        "a3ce01fa3c080e47b401fbcc4739caf7a178ff1395a0813f1ce05323afaf1191",
+      salt: "d2df5c30bebf51aff665a508b1c11845",
+      email: "mail@example.com",
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 10_000),
+      attemptCount: 0,
+      isValid: true,
+      purpose: "test",
+      id: "c1aa4918-3cb9-4b35-a9de-2e00bc55750e",
+    };
+    const DUMMY_EMAIL = "mail@example.com";
+    const callback = {
+      sendOtpEmail: async (otp: string, email: string) =>
+        console.log(`OTP (${otp}) email sent to ${email}`),
+    };
+    const otpRepository = new MemoryOtpRepository({
+      initialOtps: new Map<string, TBaseOtp>([[EXAMPLE_OTP.id, EXAMPLE_OTP]]),
+    });
+
+    const otpServerPlugin = new OtpServerPlugin({
+      otpRepository,
+      callback,
+      options: {
+        otpSecret: "example_secret",
+      },
+    });
+
+    const corePlugin = new CoreServerPlugin({
+      userRepository: new MemoryUserRepository(),
+      callback: {},
+      options: {
+        accessTokenSecret: EXAMPLE_SECRET,
+        refreshTokenSecret: EXAMPLE_SECRET,
+      },
+    });
+    const authServer = new AuthServer({
+      baseUrl: "example.com",
+    }).registerPlugins([corePlugin, otpServerPlugin]);
+
+    test("no otp found", async () => {
+      const res = await authServer.routes["/otp/verify"].POST.handler(
+        new Request(`http://example.com/otp/verify`, {
+          method: "POST",
+          body: JSON.stringify({
+            email: "random@example.com",
+            otp: EXAMPLE_OTP_STRING,
+            purpose: "test",
+          }),
+        })
+      );
+      const resJson = await res.json();
+
+      expect(resJson.error).toEqual(
+        `Unable to verify email and OTP pair, try again`
+      );
+      expect(res.status).toBe(401);
+    });
+
+    test("otp was valid payload", async () => {
+      const res = await authServer.routes["/otp/verify"].POST.handler(
+        new Request(`http://example.com/otp/verify`, {
+          method: "POST",
+          body: JSON.stringify({
+            email: EXAMPLE_OTP.email,
+            otp: EXAMPLE_OTP_STRING,
+            purpose: EXAMPLE_OTP.purpose,
+          }),
+        })
+      );
+      const resJson = await res.json();
+
+      expect(resJson).toContainKey("accessToken");
+      expect(res.status).toEqual(200);
     });
   });
 });

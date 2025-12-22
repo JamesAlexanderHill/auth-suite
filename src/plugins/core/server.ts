@@ -50,7 +50,7 @@ export default class CoreServerPlugin extends AbstractServerPlugin {
         return this._userRepository.create(userData);
       })
       .api("generateAuthTokens", async (user: TBaseUser) => {
-        const accessToken = this.signToken(
+        const accessTokenPromise = this.signToken(
           {},
           {
             user,
@@ -60,7 +60,7 @@ export default class CoreServerPlugin extends AbstractServerPlugin {
             secret: this._options.accessTokenSecret,
           }
         );
-        const refreshToken = this.signToken(
+        const refreshTokenPromise = this.signToken(
           {},
           {
             user,
@@ -70,6 +70,11 @@ export default class CoreServerPlugin extends AbstractServerPlugin {
             secret: this._options.accessTokenSecret,
           }
         );
+
+        const [accessToken, refreshToken] = await Promise.all([
+          accessTokenPromise,
+          refreshTokenPromise,
+        ]);
 
         return { accessToken, refreshToken };
       });
