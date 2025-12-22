@@ -7,6 +7,7 @@ import type {
   TAsyncFunc,
   UnionToIntersection,
   PluginApi,
+  PluginRoutes,
 } from "./utils/types";
 import type AbstractServerPlugin from "./plugins/abstract-server-plugin";
 
@@ -52,6 +53,7 @@ export default class AuthServer<
   /** Register multiple plugins */
   registerPlugins<P extends readonly AbstractServerPlugin[]>(plugins: P) {
     type PApi = UnionToIntersection<PluginApi<P[number]>>;
+    type PRoutes = UnionToIntersection<PluginRoutes<P[number]>>;
 
     let authServer: AuthServer<TApi, TRoutes, TMiddleware> = this;
 
@@ -59,19 +61,41 @@ export default class AuthServer<
       authServer = authServer.registerPlugin(plugin);
     }
 
-    return authServer as AuthServer<TApi & PApi, TRoutes, TMiddleware>;
+    return authServer as AuthServer<
+      TApi & PApi,
+      TRoutes & PRoutes,
+      TMiddleware
+    >;
   }
 
   /** Register a plugin */
   registerPlugin<P extends AbstractServerPlugin>(plugin: P) {
-    const builder = plugin.registerApi(this);
-    const builtApi = builder.build() as PluginApi<P>;
+    const apiBuilder = plugin.registerApi(this);
+    const builtApi = apiBuilder.build() as PluginApi<P>;
+    const newApi = { ...this._api, ...builtApi };
 
-    const newApi = { ...this.api, ...builtApi };
-
-    return new AuthServer<TApi & PluginApi<P>, TRoutes, TMiddleware>({
+    const authServerWithApi = new AuthServer<
+      TApi & PluginApi<P>,
+      TRoutes,
+      TMiddleware
+    >({
       api: newApi,
       routes: this._routes,
+      middleware: this._middleware,
+    });
+
+    // TODO: this needs an authServer instance with the API already added, because a plugins routes rely on its own APIs
+    const routesBuilder = plugin.registerRoutes(authServerWithApi);
+    const builtRoutes = routesBuilder.build() as PluginRoutes<P>;
+    const newRoutes = { ...this._routes, ...builtRoutes };
+
+    return new AuthServer<
+      TApi & PluginApi<P>,
+      TRoutes & PluginRoutes<P>,
+      TMiddleware
+    >({
+      api: authServerWithApi.api,
+      routes: newRoutes,
       middleware: this._middleware,
     });
   }
@@ -79,5 +103,9 @@ export default class AuthServer<
   /** Return the fully-typed merged API */
   get api(): TApi {
     return this._api;
+  }
+
+  get routes(): TRoutes {
+    return this._routes;
   }
 }

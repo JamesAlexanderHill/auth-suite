@@ -167,6 +167,7 @@ export default class OtpServerPlugin extends AbstractServerPlugin {
               message: `An email has been sent to ${ctx.body.email}`,
             });
           } catch (err) {
+            console.log(err);
             // TODO: handle all possible errors thrown by this route?
             return error("Unable to send a OTP email, please try again later");
           }

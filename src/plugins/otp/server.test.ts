@@ -43,7 +43,6 @@ describe("OTP Plugin", async () => {
 
     // TODO: check if default or callback generate function is called?
     // check if hashed OTP is stored in the otpRepository
-    console.log((await otpRepository.list(10, 0)).items);
     expect((await otpRepository.list(10, 0)).items.length).toBe(1);
     // check if email callback has been invoked
     expect(spy).toHaveBeenCalledTimes(1);
@@ -149,7 +148,48 @@ describe("OTP Plugin", async () => {
     expect(updatedOtp.isValid).toBeFalse();
   });
 
-  test("POST: /otp/send", () => {
-    // TODO: create test to verify endpoint works as expected
+  describe("POST: /otp/send", async () => {
+    const DUMMY_EMAIL = "mail@example.com";
+    const callback = {
+      sendOtpEmail: async (otp: string, email: string) =>
+        console.log(`OTP (${otp}) email sent to ${email}`),
+    };
+    const otpRepository = new MemoryOtpRepository();
+
+    const otpServerPlugin = new OtpServerPlugin({
+      otpRepository,
+      callback,
+      options: {
+        otpSecret: "example_secret",
+      },
+    });
+    const authServer = new AuthServer({}).registerPlugins([otpServerPlugin]);
+
+    test("good payload", async () => {
+      const res = await authServer.routes["/otp/send"].POST.handler(
+        new Request(`http://example.com/otp/send`, {
+          method: "POST",
+          body: JSON.stringify({ email: DUMMY_EMAIL, purpose: "test" }),
+        })
+      );
+      const resJson = await res.json();
+
+      expect(resJson.message).toEqual(
+        `An email has been sent to ${DUMMY_EMAIL}`
+      );
+    });
+
+    test("bad payload", async () => {
+      const res = await authServer.routes["/otp/send"].POST.handler(
+        new Request(`http://example.com/otp/send`, {
+          method: "POST",
+          body: JSON.stringify({ email: DUMMY_EMAIL }),
+        })
+      );
+      const resJson = await res.json();
+
+      expect(resJson.error).toEqual(`Invalid body`);
+      expect(res.status).toEqual(400);
+    });
   });
 });

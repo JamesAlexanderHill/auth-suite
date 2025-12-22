@@ -94,7 +94,6 @@ describe("RouteBuilder", () => {
       })
     );
     const resJson = await res.json();
-    console.log(resJson);
 
     expect(resJson.email).toEqual(DUMMY_EMAIL);
   });

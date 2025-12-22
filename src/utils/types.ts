@@ -2,6 +2,7 @@ import type { AbstractServerPluginClass } from "../plugins/abstract-server-plugi
 import type AuthServer from "../server";
 import type ApiBuilder from "./api-builder";
 import type { RouteHandler } from "./proxy-route-handler";
+import type RouteBuilder from "./route-builder";
 
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type Fn = (...args: any[]) => any;
@@ -44,6 +45,12 @@ export type PathToObj<S extends string, V> = S extends `${infer H}.${infer T}`
   : { [K in S]: V };
 export type PluginApi<P> = P extends {
   registerApi(...a: any): ApiBuilder<infer A>;
+}
+  ? A
+  : never;
+
+export type PluginRoutes<P> = P extends {
+  registerRoutes(...a: any): RouteBuilder<infer A>;
 }
   ? A
   : never;

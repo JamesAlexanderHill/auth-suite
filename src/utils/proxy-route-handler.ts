@@ -71,8 +71,6 @@ function proxyRouteHandler<
       const queryParams = Object.fromEntries(reqUrl.searchParams.entries());
       const parsed = schema.query.safeParse(queryParams);
 
-      console.log(queryParams, parsed);
-
       if (!parsed.success) {
         return error("Invalid query params");
       }
