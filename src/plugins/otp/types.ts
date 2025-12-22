@@ -4,6 +4,7 @@ export interface TBaseOtp {
   salt: string;
   email: string;
   createdAt: Date;
+  expiresAt: Date;
   attemptCount: number;
   isValid: boolean;
   purpose: string;

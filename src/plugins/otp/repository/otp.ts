@@ -27,7 +27,7 @@ export interface IOtpRepository<TOtp extends TBaseOtp = TBaseOtp> {
    * @returns The updated OTP.
    * @throws StoreError('entry-not-found') if no OTP exists with this ID.
    */
-  update(id: string, user: Partial<Omit<TOtp, "id">>): Promise<Readonly<TOtp>>;
+  update(id: string, otp: Partial<Omit<TOtp, "id">>): Promise<Readonly<TOtp>>;
 
   /**
    * Delete an OTP.

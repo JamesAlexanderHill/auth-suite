@@ -1,3 +1,6 @@
+import crypto from "crypto";
+import { z } from "zod";
+
 import AuthServer from "../../server";
 import { type IOtpRepository } from "./repository/otp";
 import type { TBaseOtp } from "./types";
@@ -9,9 +12,7 @@ import type {
 } from "../../utils/types";
 import { corePlugin } from "../server";
 import RouteBuilder from "../../utils/route-builder";
-import { error, json } from "../../utils/response";
-import { z } from "zod";
-import crypto from "crypto";
+import { error, json, tokenResponse } from "../../utils/response";
 
 async function defaultGenerateOtp() {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -24,18 +25,35 @@ async function hashOtp({
   email,
   secret,
   purpose,
+  salt,
 }: {
   otp: string;
   email: string;
   secret: string;
   purpose: string;
+  salt?: string;
 }) {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const data = `${otp}:${email}:${purpose}:${salt}`;
+  const saltWithFallback = salt ?? crypto.randomBytes(16).toString("hex");
+  const data = `${otp}:${email}:${purpose}:${saltWithFallback}`;
   const hash = crypto.createHmac("sha256", secret).update(data).digest("hex");
 
-  return { salt, hash };
+  return { salt: saltWithFallback, hash };
 }
+
+function timingSafeEqualHex(aHex: string, bHex: string): boolean {
+  const a = Buffer.from(aHex, "hex");
+  const b = Buffer.from(bHex, "hex");
+
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(a, b);
+}
+
+const DEFAULT_OPTIONS = {
+  otpDurationMs: 60_000 * 10, // 10min
+};
 
 type OtpServerPluginParams = {
   otpRepository: IOtpRepository<TBaseOtp>;
@@ -45,6 +63,7 @@ type OtpServerPluginParams = {
   };
   options: {
     otpSecret: string;
+    otpDurationMs?: number;
   };
 };
 
@@ -60,81 +79,174 @@ export default class OtpServerPlugin extends AbstractServerPlugin {
 
     this._callback = params.callback;
     this._otpRepository = params.otpRepository;
-    this._options = params.options;
+    this._options = {
+      ...DEFAULT_OPTIONS,
+      ...params.options,
+    };
   }
 
   public registerApi(
-    _authServer: AuthServerRegisterApi<typeof OtpServerPlugin>
+    authServer: AuthServerRegisterApi<typeof OtpServerPlugin>
   ) {
     return new ApiBuilder()
-      .api("otp.generate", async () => {
-        const otp =
-          (await this._callback.generateOtp?.()) ||
-          (await defaultGenerateOtp());
+      .api("otp.send", async (email: string, purpose: string) => {
+        // generate a otp
+        const otp = await this.generate();
 
-        return otp;
+        const hashedOtp = await hashOtp({
+          otp,
+          email,
+          secret: this._options.otpSecret,
+          purpose,
+        });
+
+        // save the otp and email pair in db
+        await this._otpRepository.create({
+          hashedOtp: hashedOtp.hash,
+          salt: hashedOtp.salt,
+          email: email,
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + this._options.otpDurationMs),
+          attemptCount: 0,
+          isValid: true,
+          purpose: purpose,
+        });
+
+        await this._callback.sendOtpEmail(email, otp);
       })
-      .api("otp.store", async (otp: Omit<TBaseOtp, "id">) => {
-        return this._otpRepository.create(otp);
-      })
-      .api("otp.send", async (email: string, otp: string) => {
-        try {
-          await this._callback.sendOtpEmail(email, otp);
+      .api("otp.invalidate", async (id: TBaseOtp["id"]) => this.invalidate(id))
+      .api(
+        "otp.verify",
+        async (email: string, otp: string, purpose: string) => {
+          // TODO: need to support filtering by email, purpose, isValid,
+          const recentOtp = (
+            await this._otpRepository.list(1, 0, "expiresAt", "asc")
+          ).items[0];
+
+          if (!recentOtp) return false;
+
+          // hash new OTP with same salt
+          const recomputedHash = await hashOtp({
+            otp,
+            email,
+            secret: this._options.otpSecret,
+            purpose,
+            salt: recentOtp.salt, // compute a new hash using our most recent OTP's salt
+          });
+
+          // compare hashes
+          if (!timingSafeEqualHex(recentOtp.hashedOtp, recomputedHash.hash)) {
+            // increment attempt count
+            await this._otpRepository.update(recentOtp.id, {
+              ...recentOtp,
+              attemptCount: recentOtp.attemptCount + 1,
+            });
+
+            return false;
+          }
+
+          // invalidate otp
+          await this.invalidate(recentOtp.id);
 
           return true;
-        } catch (err) {
-          return false;
         }
-      });
+      );
   }
 
   public registerRoutes(
     authServer: AuthServerRegisterRoute<typeof OtpServerPlugin>
   ) {
-    return new RouteBuilder().post(
-      "/otp/send",
-      async ({ ctx }) => {
-        try {
-          // generate a otp
-          const otp = await authServer.api.otp.generate();
+    return new RouteBuilder()
+      .post(
+        "/otp/send",
+        async ({ ctx }) => {
+          try {
+            await authServer.api.otp.send(ctx.body.email, ctx.body.purpose);
 
-          const hashedOtp = await hashOtp({
-            otp,
-            email: ctx.body.email,
-            secret: this._options.otpSecret,
-            purpose: ctx.body.purpose,
-          });
-
-          // save the otp and email pair in db
-          await authServer.api.otp.store({
-            hashedOtp: hashedOtp.hash,
-            salt: hashedOtp.salt,
-            email: ctx.body.email,
-            createdAt: new Date(),
-            attemptCount: 0,
-            isValid: true,
-            purpose: ctx.body.purpose,
-          });
-
-          // we want to send the hashed version
-          await authServer.api.otp.send(ctx.body.email, otp);
-
-          return json({
-            message: `An email has been sent to ${ctx.body.email}`,
-          });
-        } catch (err) {
-          // TODO: handle all possible errors thrown by this route
-          return error("Unable to send a OTP email, please try again later");
-        }
-      },
-      {
-        schema: {
-          body: z.object({
-            email: z.email(),
-            purpose: z.string(),
-          }),
+            return json({
+              message: `An email has been sent to ${ctx.body.email}`,
+            });
+          } catch (err) {
+            // TODO: handle all possible errors thrown by this route?
+            return error("Unable to send a OTP email, please try again later");
+          }
         },
-      }
-    );
+        {
+          schema: {
+            body: z.object({
+              email: z.email(),
+              purpose: z.string(),
+            }),
+          },
+        }
+      )
+      .post(
+        "/otp/verify",
+        async ({ ctx }) => {
+          try {
+            const otpIsCorrect = await authServer.api.otp.verify(
+              ctx.body.email,
+              ctx.body.otp,
+              ctx.body.purpose
+            );
+
+            if (!otpIsCorrect) {
+              throw "Unable to verify email and OTP pair, try again";
+            }
+
+            // get user by email (or create one if needed)
+            let user = await authServer.api.getUserByEmail(ctx.body.email);
+
+            if (!user) {
+              user = await authServer.api.createUser({
+                email: ctx.body.email,
+              });
+            }
+
+            // generate tokens
+            const { accessToken, refreshToken } =
+              await authServer.api.generateAuthTokens(user);
+
+            return tokenResponse(accessToken, refreshToken);
+          } catch (err) {
+            if (typeof err === "string") {
+              return error(err);
+            }
+
+            return error(
+              "An unknown error occured when trying to verify email and OTP pair, try again"
+            );
+          }
+        },
+        {
+          schema: {
+            body: z.object({
+              otp: z.string(),
+              email: z.email(),
+              purpose: z.string(),
+            }),
+          },
+        }
+      );
+  }
+
+  private async generate() {
+    const otp =
+      (await this._callback.generateOtp?.()) || (await defaultGenerateOtp());
+
+    return otp;
+  }
+
+  private async invalidate(id: TBaseOtp["id"]) {
+    const originalOtp = await this._otpRepository.getById(id);
+
+    if (!originalOtp) {
+      throw "Unable to invalidated an OTP that does not exist";
+    }
+
+    return this._otpRepository.update(id, {
+      ...originalOtp,
+      isValid: false,
+    });
   }
 }
