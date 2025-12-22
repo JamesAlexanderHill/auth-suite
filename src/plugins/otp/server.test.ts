@@ -33,7 +33,9 @@ describe("OTP Plugin", async () => {
         otpSecret: "example_secret",
       },
     });
-    const authServer = new AuthServer({}).registerPlugins([otpServerPlugin]);
+    const authServer = new AuthServer({
+      baseUrl: "example.com",
+    }).registerPlugins([otpServerPlugin]);
 
     const spy = spyOn(callback, "sendOtpEmail");
 
@@ -79,7 +81,9 @@ describe("OTP Plugin", async () => {
         otpSecret: "example_secret",
       },
     });
-    const authServer = new AuthServer({}).registerPlugins([otpServerPlugin]);
+    const authServer = new AuthServer({
+      baseUrl: "example.com",
+    }).registerPlugins([otpServerPlugin]);
 
     expect(authServer.api.otp).toHaveProperty("verify");
 
@@ -141,7 +145,9 @@ describe("OTP Plugin", async () => {
         otpSecret: "example_secret",
       },
     });
-    const authServer = new AuthServer({}).registerPlugins([otpServerPlugin]);
+    const authServer = new AuthServer({
+      baseUrl: "example.com",
+    }).registerPlugins([otpServerPlugin]);
 
     expect(authServer.api.otp).toHaveProperty("invalidate");
     const updatedOtp = await authServer.api.otp.invalidate(TEST_OTP.id);
@@ -163,7 +169,9 @@ describe("OTP Plugin", async () => {
         otpSecret: "example_secret",
       },
     });
-    const authServer = new AuthServer({}).registerPlugins([otpServerPlugin]);
+    const authServer = new AuthServer({
+      baseUrl: "example.com",
+    }).registerPlugins([otpServerPlugin]);
 
     test("good payload", async () => {
       const res = await authServer.routes["/otp/send"].POST.handler(

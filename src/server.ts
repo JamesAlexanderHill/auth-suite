@@ -13,14 +13,16 @@ import type AbstractServerPlugin from "./plugins/abstract-server-plugin";
 
 type AuthServerOptions = {
   baseUrl: string;
-  name: string;
+  name?: string;
+};
+const BASE_OPTIONS = {
+  name: "auth-suite",
 };
 
 type TAuthServerParams<TApi, TRoutes, TMiddleware> = {
   api?: TApi;
   routes?: TRoutes;
   middleware?: TMiddleware;
-  options: AuthServerOptions;
 };
 
 export default class AuthServer<
@@ -32,19 +34,20 @@ export default class AuthServer<
   private _routes: TRoutes;
   private _middleware: TMiddleware;
 
-  options: AuthServerOptions;
+  public readonly options;
 
-  constructor({
-    api,
-    routes,
-    middleware,
-    options,
-  }: TAuthServerParams<TApi, TRoutes, TMiddleware>) {
-    this._api = api || ({} as TApi);
-    this._routes = routes || ({} as TRoutes);
-    this._middleware = middleware || ({} as TMiddleware);
+  constructor(
+    options: AuthServerOptions,
+    args?: TAuthServerParams<TApi, TRoutes, TMiddleware>
+  ) {
+    this._api = args?.api || ({} as TApi);
+    this._routes = args?.routes || ({} as TRoutes);
+    this._middleware = args?.middleware || ({} as TMiddleware);
 
-    this.options = options;
+    this.options = {
+      ...BASE_OPTIONS,
+      ...options,
+    };
   }
 
   public registerApi<K extends string, H extends TAsyncFunc>(
@@ -54,11 +57,14 @@ export default class AuthServer<
     const newApi = assocPath(key.split("."), handler, this._api) as TApi &
       PathToObj<K, H>;
 
-    return new AuthServer<TApi & PathToObj<K, H>, TRoutes, TMiddleware>({
-      api: newApi,
-      routes: this._routes,
-      middleware: this._middleware,
-    });
+    return new AuthServer<TApi & PathToObj<K, H>, TRoutes, TMiddleware>(
+      this.options,
+      {
+        api: newApi,
+        routes: this._routes,
+        middleware: this._middleware,
+      }
+    );
   }
 
   /** Register multiple plugins */
@@ -89,7 +95,7 @@ export default class AuthServer<
       TApi & PluginApi<P>,
       TRoutes,
       TMiddleware
-    >({
+    >(this.options, {
       api: newApi,
       routes: this._routes,
       middleware: this._middleware,
@@ -104,7 +110,7 @@ export default class AuthServer<
       TApi & PluginApi<P>,
       TRoutes & PluginRoutes<P>,
       TMiddleware
-    >({
+    >(this.options, {
       api: authServerWithApi.api,
       routes: newRoutes,
       middleware: this._middleware,

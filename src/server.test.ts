@@ -34,7 +34,7 @@ const overridePlugin = new OverridePlugin();
 
 describe("AuthServer", async () => {
   test("registerPlugin", async () => {
-    const authServer = new AuthServer({})
+    const authServer = new AuthServer({ baseUrl: "example.com" })
       .registerPlugin(examplePlugin)
       .registerPlugin(overridePlugin)
       .registerApi("ok", () => Promise.resolve(true));
@@ -47,7 +47,7 @@ describe("AuthServer", async () => {
   });
 
   test("registerPlugins", async () => {
-    const authServer = new AuthServer({})
+    const authServer = new AuthServer({ baseUrl: "example.com" })
       .registerPlugins([examplePlugin, overridePlugin])
       .registerApi("ok", () => Promise.resolve(true));
 
