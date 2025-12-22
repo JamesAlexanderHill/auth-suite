@@ -1,3 +1,5 @@
+import * as jose from "jose";
+
 import AuthServer from "../../server";
 import ApiBuilder from "../../utils/api-builder";
 import type { IUserRepository } from "./repository/user";
@@ -10,6 +12,8 @@ type CoreServerPluginParams = {
   options: {
     accessTokenExpiryMs?: number;
     refreshTokenExpiryMs?: number;
+    accessTokenSecret: CryptoKey | Uint8Array;
+    refreshTokenSecret: CryptoKey | Uint8Array;
   };
 };
 
@@ -34,7 +38,7 @@ export default class CoreServerPlugin extends AbstractServerPlugin {
     };
   }
 
-  public registerApi(_authServer: AuthServer) {
+  public registerApi(authServer: AuthServer) {
     return new ApiBuilder()
       .api("getUserById", async (id: string) => {
         return this._userRepository.getById(id);
@@ -46,17 +50,49 @@ export default class CoreServerPlugin extends AbstractServerPlugin {
         return this._userRepository.create(userData);
       })
       .api("generateAuthTokens", async (user: TBaseUser) => {
-        return { accessToken: "", refreshToken: "" };
+        const accessToken = this.signToken(
+          {},
+          {
+            user,
+            iss: authServer.options.baseUrl,
+            aud: authServer.options.name,
+            dur: this._options.refreshTokenExpiryMs,
+            secret: this._options.accessTokenSecret,
+          }
+        );
+        const refreshToken = this.signToken(
+          {},
+          {
+            user,
+            iss: authServer.options.baseUrl,
+            aud: authServer.options.name,
+            dur: this._options.refreshTokenExpiryMs,
+            secret: this._options.accessTokenSecret,
+          }
+        );
+
+        return { accessToken, refreshToken };
       });
   }
 
-  // private async signToken(payload, options) {
-  //   return await new jose.SignJWT(payload)
-  //     .setProtectedHeader({ alg: options.alg })
-  //     .setIssuedAt()
-  //     .setIssuer(options.issuer)
-  //     .setAudience(options.audience)
-  //     .setExpirationTime(options.duration)
-  //     .sign(options.secret);
-  // }
+  private async signToken(
+    payload: Record<string, any>,
+    options: {
+      user: TBaseUser;
+      dur: number;
+      secret: CryptoKey | Uint8Array;
+      iss: string;
+      alg?: string;
+      aud?: string;
+    }
+  ) {
+    return await new jose.SignJWT(payload)
+      .setProtectedHeader({ alg: options?.alg ?? "HS256" })
+      .setIssuedAt()
+      .setSubject(options.user.id)
+      .setIssuer(options.iss)
+      .setAudience(options.aud ?? "auth-suite")
+      .setExpirationTime(new Date(Date.now() + options.dur))
+      .sign(options.secret);
+  }
 }

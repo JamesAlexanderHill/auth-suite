@@ -11,10 +11,16 @@ import type {
 } from "./utils/types";
 import type AbstractServerPlugin from "./plugins/abstract-server-plugin";
 
+type AuthServerOptions = {
+  baseUrl: string;
+  name: string;
+};
+
 type TAuthServerParams<TApi, TRoutes, TMiddleware> = {
   api?: TApi;
   routes?: TRoutes;
   middleware?: TMiddleware;
+  options: AuthServerOptions;
 };
 
 export default class AuthServer<
@@ -26,14 +32,19 @@ export default class AuthServer<
   private _routes: TRoutes;
   private _middleware: TMiddleware;
 
+  options: AuthServerOptions;
+
   constructor({
     api,
     routes,
     middleware,
+    options,
   }: TAuthServerParams<TApi, TRoutes, TMiddleware>) {
     this._api = api || ({} as TApi);
     this._routes = routes || ({} as TRoutes);
     this._middleware = middleware || ({} as TMiddleware);
+
+    this.options = options;
   }
 
   public registerApi<K extends string, H extends TAsyncFunc>(
