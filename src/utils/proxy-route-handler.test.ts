@@ -35,4 +35,31 @@ describe("proxyRouteHandler", () => {
     // should take a request and return a valid response
     expect(await res.json()).toEqual({ email: "test@example.com" });
   });
+
+  test("request schema does not match request", async () => {
+    const url = "/route/example";
+    const options = {
+      schema: {
+        query: z.object({
+          email: z.email(),
+        }),
+      },
+    };
+
+    const routeHandler = proxyRouteHandler(
+      url,
+      ({ req, ctx }) => {
+        const email = ctx.query.email;
+
+        return Promise.resolve(json({ email }));
+      },
+      options
+    );
+
+    const res = await routeHandler.handler(
+      new Request(`http://example.com${url}?email=not_an_email`)
+    );
+
+    expect(res.status).toEqual(400);
+  });
 });
