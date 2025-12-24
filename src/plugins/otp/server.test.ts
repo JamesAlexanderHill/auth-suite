@@ -42,7 +42,7 @@ const setupTest = ({
       otpSecret: "example_secret",
     },
   });
-  const corePlugin = new CoreServerPlugin({
+  const coreServerPlugin = new CoreServerPlugin({
     userRepository: new MemoryUserRepository(),
     callback: {},
     options: {
@@ -52,7 +52,7 @@ const setupTest = ({
   });
   const authServer = new AuthServer({
     baseUrl: "example.com",
-  }).registerPlugins([corePlugin, otpServerPlugin]);
+  }).registerPlugins([coreServerPlugin, otpServerPlugin]);
 
   return { authServer, otpRepository, sendOtpEmailSpy };
 };

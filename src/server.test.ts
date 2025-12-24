@@ -33,19 +33,6 @@ const examplePlugin = new ExamplePlugin();
 const overridePlugin = new OverridePlugin();
 
 describe("AuthServer", async () => {
-  test("registerPlugin", async () => {
-    const authServer = new AuthServer({ baseUrl: "example.com" })
-      .registerPlugin(examplePlugin)
-      .registerPlugin(overridePlugin)
-      .registerApi("ok", () => Promise.resolve(true));
-
-    expect(authServer).toBeInstanceOf(AuthServer);
-
-    expect(await authServer.api.ok()).toBeTrue();
-    expect(await authServer.api.plugin.ok()).toBeFalse();
-    expect(await authServer.api.use.dependency.ok()).toBeTrue();
-  });
-
   test("registerPlugins", async () => {
     const authServer = new AuthServer({ baseUrl: "example.com" })
       .registerPlugins([examplePlugin, overridePlugin])
@@ -56,5 +43,16 @@ describe("AuthServer", async () => {
     expect(await authServer.api.ok()).toBeTrue();
     expect(await authServer.api.plugin.ok()).toBeFalse();
     expect(await authServer.api.use.dependency.ok()).toBeTrue();
+  });
+
+  test("throw error if a plugin is missing a dependency", () => {
+    const authServer = new AuthServer({
+      baseUrl: "example.com",
+    });
+
+    // needs to be in an anonymous function for bun to detect the thrown error
+    expect(() => authServer.registerPlugins([overridePlugin])).toThrowError(
+      'Cannot register plugin "OverridePlugin": missing dependencies: ExamplePlugin'
+    );
   });
 });
