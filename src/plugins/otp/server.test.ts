@@ -8,6 +8,7 @@ import CoreServerPlugin from "../core/server";
 import { MemoryUserRepository } from "../core/repository/user";
 
 const EXAMPLE_SECRET = new TextEncoder().encode("test_secret");
+const DUMMY_EMAIL = "mail@example.com";
 const DUMMY_OTP: Omit<TBaseOtp, "id"> = {
   hashedOtp: "dummy",
   attemptCount: 0,
@@ -16,31 +17,49 @@ const DUMMY_OTP: Omit<TBaseOtp, "id"> = {
   createdAt: new Date(),
   expiresAt: new Date(Date.now() + 10_000),
   salt: "random_string",
-  email: "mail@example.com",
+  email: DUMMY_EMAIL,
+};
+
+const setupTest = ({
+  callback,
+  repository,
+}: {
+  callback?: any;
+  repository?: MemoryOtpRepository;
+} = {}) => {
+  const callbackWithFallback = {
+    sendOtpEmail: async (otp: string, email: string) =>
+      console.log(`OTP (${otp}) email sent to ${email}`),
+    ...callback,
+  };
+  const sendOtpEmailSpy = spyOn(callbackWithFallback, "sendOtpEmail");
+  const otpRepository = repository ?? new MemoryOtpRepository();
+
+  const otpServerPlugin = new OtpServerPlugin({
+    otpRepository,
+    callback: callbackWithFallback,
+    options: {
+      otpSecret: "example_secret",
+    },
+  });
+  const corePlugin = new CoreServerPlugin({
+    userRepository: new MemoryUserRepository(),
+    callback: {},
+    options: {
+      accessTokenSecret: EXAMPLE_SECRET,
+      refreshTokenSecret: EXAMPLE_SECRET,
+    },
+  });
+  const authServer = new AuthServer({
+    baseUrl: "example.com",
+  }).registerPlugins([corePlugin, otpServerPlugin]);
+
+  return { authServer, otpRepository, sendOtpEmailSpy };
 };
 
 describe("OTP Plugin", async () => {
-  // expect(authServer).toBeInstanceOf(AuthServer);
-
   test("api.otp.send", async () => {
-    const callback = {
-      sendOtpEmail: async (otp: string, email: string) =>
-        console.log(`OTP (${otp}) email sent to ${email}`),
-    };
-    const otpRepository = new MemoryOtpRepository();
-
-    const otpServerPlugin = new OtpServerPlugin({
-      otpRepository,
-      callback,
-      options: {
-        otpSecret: "example_secret",
-      },
-    });
-    const authServer = new AuthServer({
-      baseUrl: "example.com",
-    }).registerPlugins([otpServerPlugin]);
-
-    const spy = spyOn(callback, "sendOtpEmail");
+    const { authServer, otpRepository, sendOtpEmailSpy } = setupTest();
 
     expect(authServer.api.otp).toHaveProperty("send");
     expect((await otpRepository.list(10, 0)).items.length).toBe(0);
@@ -50,7 +69,7 @@ describe("OTP Plugin", async () => {
     // check if hashed OTP is stored in the otpRepository
     expect((await otpRepository.list(10, 0)).items.length).toBe(1);
     // check if email callback has been invoked
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(sendOtpEmailSpy).toHaveBeenCalledTimes(1);
   });
 
   test("api.otp.verify", async () => {
@@ -69,24 +88,11 @@ describe("OTP Plugin", async () => {
       id: "c1aa4918-3cb9-4b35-a9de-2e00bc55750e",
     };
 
-    const callback = {
-      sendOtpEmail: async (otp: string, email: string) =>
-        console.log(`OTP (${otp}) email sent to ${email}`),
-    };
-    const otpRepository = new MemoryOtpRepository({
+    const repository = new MemoryOtpRepository({
       initialOtps: new Map<string, TBaseOtp>([[EXAMPLE_OTP.id, EXAMPLE_OTP]]),
     });
 
-    const otpServerPlugin = new OtpServerPlugin({
-      otpRepository,
-      callback,
-      options: {
-        otpSecret: "example_secret",
-      },
-    });
-    const authServer = new AuthServer({
-      baseUrl: "example.com",
-    }).registerPlugins([otpServerPlugin]);
+    const { authServer, otpRepository } = setupTest({ repository });
 
     expect(authServer.api.otp).toHaveProperty("verify");
 
@@ -129,28 +135,15 @@ describe("OTP Plugin", async () => {
   });
 
   test("api.otp.invalidate", async () => {
-    const callback = {
-      sendOtpEmail: async (otp: string, email: string) =>
-        console.log(`OTP (${otp}) email sent to ${email}`),
-    };
     const TEST_OTP = {
       ...DUMMY_OTP,
       id: "example_id",
     };
-    const otpRepository = new MemoryOtpRepository({
+
+    const repository = new MemoryOtpRepository({
       initialOtps: new Map<string, TBaseOtp>([[TEST_OTP.id, TEST_OTP]]),
     });
-
-    const otpServerPlugin = new OtpServerPlugin({
-      otpRepository,
-      callback,
-      options: {
-        otpSecret: "example_secret",
-      },
-    });
-    const authServer = new AuthServer({
-      baseUrl: "example.com",
-    }).registerPlugins([otpServerPlugin]);
+    const { authServer } = setupTest({ repository });
 
     expect(authServer.api.otp).toHaveProperty("invalidate");
     const updatedOtp = await authServer.api.otp.invalidate(TEST_OTP.id);
@@ -158,23 +151,7 @@ describe("OTP Plugin", async () => {
   });
 
   describe("POST: /otp/send", async () => {
-    const DUMMY_EMAIL = "mail@example.com";
-    const callback = {
-      sendOtpEmail: async (otp: string, email: string) =>
-        console.log(`OTP (${otp}) email sent to ${email}`),
-    };
-    const otpRepository = new MemoryOtpRepository();
-
-    const otpServerPlugin = new OtpServerPlugin({
-      otpRepository,
-      callback,
-      options: {
-        otpSecret: "example_secret",
-      },
-    });
-    const authServer = new AuthServer({
-      baseUrl: "example.com",
-    }).registerPlugins([otpServerPlugin]);
+    const { authServer } = setupTest();
 
     test("good payload", async () => {
       const res = await authServer.routes["/otp/send"].POST.handler(
@@ -217,34 +194,11 @@ describe("OTP Plugin", async () => {
       purpose: "test",
       id: "c1aa4918-3cb9-4b35-a9de-2e00bc55750e",
     };
-    const DUMMY_EMAIL = "mail@example.com";
-    const callback = {
-      sendOtpEmail: async (otp: string, email: string) =>
-        console.log(`OTP (${otp}) email sent to ${email}`),
-    };
     const otpRepository = new MemoryOtpRepository({
       initialOtps: new Map<string, TBaseOtp>([[EXAMPLE_OTP.id, EXAMPLE_OTP]]),
     });
 
-    const otpServerPlugin = new OtpServerPlugin({
-      otpRepository,
-      callback,
-      options: {
-        otpSecret: "example_secret",
-      },
-    });
-
-    const corePlugin = new CoreServerPlugin({
-      userRepository: new MemoryUserRepository(),
-      callback: {},
-      options: {
-        accessTokenSecret: EXAMPLE_SECRET,
-        refreshTokenSecret: EXAMPLE_SECRET,
-      },
-    });
-    const authServer = new AuthServer({
-      baseUrl: "example.com",
-    }).registerPlugins([corePlugin, otpServerPlugin]);
+    const { authServer } = setupTest({ repository: otpRepository });
 
     test("no otp found", async () => {
       const res = await authServer.routes["/otp/verify"].POST.handler(

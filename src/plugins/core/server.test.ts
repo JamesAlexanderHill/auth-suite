@@ -20,7 +20,7 @@ describe("Core Plugin", async () => {
     },
   });
   const authServer = new AuthServer({
-    baseUrl: "example.com"
+    baseUrl: "example.com",
   }).registerPlugins([coreServerPlugin]);
 
   expect(authServer).toBeInstanceOf(AuthServer);
@@ -29,13 +29,13 @@ describe("Core Plugin", async () => {
 
   testUser = await authServer.api.createUser(DUMMY_USER);
 
-  test("createUser", async () => {
+  test("api.createUser", async () => {
     expect(authServer.api).toHaveProperty("createUser");
 
     expect(testUser).toContainKeys(["id", "email"]);
   });
 
-  test("getUserById", async () => {
+  test("api.getUserById", async () => {
     expect(authServer.api).toHaveProperty("getUserById");
 
     const successRequestedUser = await authServer.api.getUserById(testUser.id);
@@ -45,7 +45,7 @@ describe("Core Plugin", async () => {
     expect(failureRequestedUser).toBeNull();
   });
 
-  test("getUserByEmail", async () => {
+  test("api.getUserByEmail", async () => {
     expect(authServer.api).toHaveProperty("getUserByEmail");
 
     const successRequestedUser = await authServer.api.getUserByEmail(
@@ -57,5 +57,15 @@ describe("Core Plugin", async () => {
 
     expect(successRequestedUser).toMatchObject(DUMMY_USER);
     expect(failureRequestedUser).toBeNull();
+  });
+
+  test("api.generateAuthTokens", async () => {
+    expect(authServer.api).toHaveProperty("generateAuthTokens");
+
+    const { accessToken, refreshToken } =
+      await authServer.api.generateAuthTokens(testUser);
+
+    expect(accessToken).toBeString();
+    expect(refreshToken).toBeString();
   });
 });
