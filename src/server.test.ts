@@ -52,7 +52,7 @@ describe("AuthServer", async () => {
 
     // needs to be in an anonymous function for bun to detect the thrown error
     expect(() => authServer.registerPlugins([overridePlugin])).toThrowError(
-      'Cannot register plugin "OverridePlugin": missing dependencies: ExamplePlugin'
+      'Cannot register AuthServer plugin "OverridePlugin": missing dependencies: ExamplePlugin'
     );
   });
 });

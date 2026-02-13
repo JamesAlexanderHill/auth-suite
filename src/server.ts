@@ -81,6 +81,7 @@ export default class AuthServer<
 
     let authServer: AuthServer<TApi, TRoutes, TMiddleware> = this;
 
+    // TODO: order plugins by dependancy graph
     for (const plugin of plugins) {
       // TODO: throw error if plugin dependencies havnt already been added to authServer??
       authServer = authServer.registerPlugin(plugin);
@@ -106,7 +107,7 @@ export default class AuthServer<
       const pluginName = pluginClass.name || "<anonymous>";
 
       throw new Error(
-        `Cannot register plugin "${pluginName}": missing dependencies: ${missingNames.join(
+        `Cannot register AuthServer plugin "${pluginName}": missing dependencies: ${missingNames.join(
           ", "
         )}`
       );

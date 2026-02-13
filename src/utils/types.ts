@@ -1,3 +1,5 @@
+import type AuthClient from "../client";
+import type { AbstractClientPluginClass } from "../plugins/abstract-client-plugin";
 import type { AbstractServerPluginClass } from "../plugins/abstract-server-plugin";
 import type AuthServer from "../server";
 import type ApiBuilder from "./api-builder";
@@ -55,44 +57,49 @@ export type PluginRoutes<P> = P extends {
   ? A
   : never;
 
+// utility type to group Abstract plugin classes
+type AbstractPluginClass = AbstractServerPluginClass | AbstractClientPluginClass;
+
 // Get the instance type of a plugin class
-type PluginInstance<C extends AbstractServerPluginClass> = InstanceType<C>;
+type PluginInstance<C extends AbstractPluginClass> = InstanceType<C>;
 
 // Safely get the API type from a plugin *class* (via its instance)
-type PluginApiOfClass<C extends AbstractServerPluginClass> = PluginApi<
+type PluginApiOfClass<C extends AbstractPluginClass> = PluginApi<
   PluginInstance<C>
 >;
 
 // All dependency plugin classes of a plugin class
-type DepPluginClass<C extends AbstractServerPluginClass> =
+type DepPluginClass<C extends AbstractPluginClass> =
   C["dependencies"] extends readonly (infer D)[]
-    ? D extends AbstractServerPluginClass
+    ? D extends AbstractPluginClass
       ? D
       : never
     : never;
 
 // Intersection of all dependency APIs.
 // This is the *raw* version; we’ll wrap it in TBaseApi later.
-type RawDepApis<C extends AbstractServerPluginClass> =
+type RawDepApis<C extends AbstractPluginClass> =
   DepPluginClass<C> extends never
     ? {}
     : UnionToIntersection<PluginApiOfClass<DepPluginClass<C>>>;
 
 // Own API of the plugin class (raw)
-type RawSelfApi<C extends AbstractServerPluginClass> = PluginApiOfClass<C>;
+type RawSelfApi<C extends AbstractPluginClass> = PluginApiOfClass<C>;
 
 // Now force these to satisfy TBaseApi by intersecting with it.
 // This both satisfies the constraint and keeps the concrete keys.
-type DepApis<C extends AbstractServerPluginClass> = TBaseApi & RawDepApis<C>;
+type DepApis<C extends AbstractPluginClass> = TBaseApi & RawDepApis<C>;
 
-type SelfApi<C extends AbstractServerPluginClass> = TBaseApi & RawSelfApi<C>;
+type SelfApi<C extends AbstractPluginClass> = TBaseApi & RawSelfApi<C>;
 
 // Combined API visible when registering *routes* for this plugin:
 // - its own API
 // - plus all dependency APIs
-type PluginWithDepsApi<C extends AbstractServerPluginClass> = TBaseApi &
+type PluginWithDepsApi<C extends AbstractPluginClass> = TBaseApi &
   SelfApi<C> &
   DepApis<C>;
+
+// === AUTH SERVER ===
 
 // When registering APIs for this plugin, you only see dependency APIs
 type AuthServerWithDeps<C extends AbstractServerPluginClass> = AuthServer<
@@ -107,3 +114,14 @@ export type AuthServerRegisterApi<
 export type AuthServerRegisterRoute<
   ClassReference extends AbstractServerPluginClass
 > = AuthServer<PluginWithDepsApi<ClassReference>>;
+
+// === AUTH CLIENT ===
+
+// When registering APIs for this plugin, you only see dependency APIs
+type AuthClientWithDeps<C extends AbstractClientPluginClass> = AuthClient<
+  DepApis<C>
+>;
+
+export type AuthClientRegisterApi<
+  ClassReference extends AbstractClientPluginClass
+> = AuthClientWithDeps<ClassReference>;

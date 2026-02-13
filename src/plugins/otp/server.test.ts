@@ -28,7 +28,7 @@ const setupTest = ({
   repository?: MemoryOtpRepository;
 } = {}) => {
   const callbackWithFallback = {
-    sendOtpEmail: async (otp: string, email: string) =>
+    sendOtpEmail: async (email: string, otp: string) =>
       console.log(`OTP (${otp}) email sent to ${email}`),
     ...callback,
   };
