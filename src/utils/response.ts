@@ -11,10 +11,27 @@ export function error(message: string, status: number = 400): Response {
 
 export function tokenResponse(
   accessToken: string,
-  refreshToken: string
+  refreshToken: string,
+  options: {
+    refreshTokenExpiryMs?: number,
+    path?: string,
+    refreshTokenKey?: string,
+  }
 ): Response {
-  return new Response(JSON.stringify({ accessToken }), {
+  const isForcedLogout = !accessToken && !refreshToken;
+
+  // TODO: check if path should only match the baseUrl of authServer. There should be no reason to have it for other routes
+  const headers = new Headers({
+    "Set-Cookie": `${options.refreshTokenKey ?? 'refreshToken'}=${refreshToken}; HttpOnly; Path=${options.path ?? '/'}; Max-Age=${options.refreshTokenExpiryMs ??  1000 * 60 * 60 * 24}`, // default to 24 hours
+    contentType: "application/json",
+  });
+
+  const payload = isForcedLogout
+    ? { success: true, message: "Logged out successfully" }
+    : { success: true, accessToken }
+
+  return new Response(JSON.stringify(payload), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers,
   });
 }

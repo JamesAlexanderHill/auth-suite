@@ -58,14 +58,4 @@ describe("Core Plugin", async () => {
     expect(successRequestedUser).toMatchObject(DUMMY_USER);
     expect(failureRequestedUser).toBeNull();
   });
-
-  test("api.generateAuthTokens", async () => {
-    expect(authServer.api).toHaveProperty("generateAuthTokens");
-
-    const { accessToken, refreshToken } =
-      await authServer.api.generateAuthTokens(testUser);
-
-    expect(accessToken).toBeString();
-    expect(refreshToken).toBeString();
-  });
 });

@@ -1,0 +1,1 @@
+export const ROUTES = {SEND: '/otp/send', VERIFY: '/otp/verify'}

@@ -1,18 +1,17 @@
 import crypto from "crypto";
 import { z } from "zod";
 
-import AuthServer from "../../server";
 import { type IOtpRepository } from "./repository/otp";
 import type { TBaseOtp } from "./types";
 import ApiBuilder from "../../utils/api-builder";
-import AbstractServerPlugin from "../abstract-server-plugin";
 import type {
   AuthServerRegisterApi,
   AuthServerRegisterRoute,
 } from "../../utils/types";
-import { corePlugin } from "../server";
+import { AbstractServerPlugin, corePlugin } from "../server";
 import RouteBuilder from "../../utils/route-builder";
-import { error, json, tokenResponse } from "../../utils/response";
+import { error, json } from "../../utils/response";
+import { ROUTES } from "./constants";
 
 async function defaultGenerateOtp() {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -158,7 +157,7 @@ export default class OtpServerPlugin extends AbstractServerPlugin {
   ) {
     return new RouteBuilder()
       .post(
-        "/otp/send",
+        ROUTES.SEND,
         async ({ ctx }) => {
           try {
             await authServer.api.otp.send(ctx.body.email, ctx.body.purpose);
@@ -181,7 +180,7 @@ export default class OtpServerPlugin extends AbstractServerPlugin {
         }
       )
       .post(
-        "/otp/verify",
+        ROUTES.VERIFY,
         async ({ ctx }) => {
           try {
             const otpIsCorrect = await authServer.api.otp.verify(
@@ -203,11 +202,8 @@ export default class OtpServerPlugin extends AbstractServerPlugin {
               });
             }
 
-            // generate tokens
-            const { accessToken, refreshToken } =
-              await authServer.api.generateAuthTokens(user);
-
-            return tokenResponse(accessToken, refreshToken);
+            // respond with auth tokens, client is expecting this response shape
+            return await authServer.api.tokenResponse(user);
           } catch (err) {
             if (typeof err === "string") {
               return error(err, 401);
