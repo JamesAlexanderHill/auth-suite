@@ -99,12 +99,20 @@ export default class CoreClientPlugin extends AbstractClientPlugin {
         // send request to logout route to clear refresh token cookie
         try {
             const res = await fetch(logoutUrl); // NOTE: unauthenticated fetch
-            const json = await res.json();
+            const {success, message} = await res.json();
 
             // delete access token in memory
             this._accessToken = null;
-        } catch (err) {
 
+            return {
+                success,
+                message,
+            }
+        } catch (err) {
+            return {
+                success: false,
+                message: typeof err === "string" ? err : "Failed to logout user",
+            }
         }
     }
 }

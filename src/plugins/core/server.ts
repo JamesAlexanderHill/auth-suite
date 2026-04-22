@@ -30,7 +30,6 @@ const DEFAULT_OPTIONS = {
 
 export default class CoreServerPlugin extends AbstractServerPlugin {
   private _callback;
-  private _userRepository;
   private _options;
 
   constructor(params: CoreServerPluginParams) {
